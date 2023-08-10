@@ -1,0 +1,12 @@
+maubot: 0.4.0
+id: com.ansible.meetings
+version: 0.0.6
+license: GPL3
+modules:
+  - meetings
+main_class: Meetings
+config: true
+extra_files:
+  - base-config.yaml
+database: true
+database_type: asyncpg
