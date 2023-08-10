@@ -56,7 +56,7 @@ class Meetings(Plugin):
       #data = json.dumps(items).encode("utf-8")
       data = json.dumps([tuple(row) for row in items]).encode("utf-8")
       url = await self.client.upload_media(data, mime_type="application/json")
-      await evt.response(MediaMessageEventContent(
+      await evt.respond(MediaMessageEventContent(
         msgtype=MessageType.FILE,
         body=filename,
         url=url,
@@ -144,12 +144,12 @@ class Meetings(Plugin):
       await self.database.execute(dbq, meeting, timestamp, sender, message)
       
       # Mark an action item
-      if re.search("^action", evt.content.body):
+      if re.search("\!action", evt.content.body):
         await self.log_tag("action", evt)
         await evt.react("🚩")
 
       # Mark an info item
-      if re.search("^info", evt.content.body):
+      if re.search("\!info", evt.content.body):
         await self.log_tag("info", evt)
         await evt.react("✏️️")
 
