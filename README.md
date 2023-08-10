@@ -16,4 +16,4 @@ will add a reaction and store a tag.
 
 When "!endmeeting" is called, the bot will emit 3 files - the "info" items, the
 "action" items, and the full meeting log. Currently these are sent to the room
-as JSON files.
+as TXT log files.

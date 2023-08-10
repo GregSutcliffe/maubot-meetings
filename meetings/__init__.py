@@ -53,18 +53,25 @@ class Meetings(Plugin):
 
   # Helper: upload a JSON file
   async def upload_file(self, evt, items, filename):
-      #data = json.dumps(items).encode("utf-8")
-      data = json.dumps([tuple(row) for row in items]).encode("utf-8")
-      url = await self.client.upload_media(data, mime_type="application/json")
-      await evt.respond(MediaMessageEventContent(
-        msgtype=MessageType.FILE,
-        body=filename,
-        url=url,
-          info=FileInfo(
-            mimetype="application/json",
-            size=len(data),
-          )
-        ))
+    if len(items) == 0:
+      return
+    
+    logs = tuple()
+    for row in items:
+      log = f"{row[1]} <{row[2]}> #{row[3]}"
+      logs += (log,)
+    
+    data = "\n".join(logs).encode("utf-8")
+    url = await self.client.upload_media(data, mime_type="text/plain")
+    await evt.respond(MediaMessageEventContent(
+      msgtype=MessageType.FILE,
+      body=filename,
+      url=url,
+        info=FileInfo(
+          mimetype="text/plain",
+          size=len(data),
+        )
+      ))
 
   # Helper: contruct a meeting ID
   def meeting_id(self, room_id):
@@ -96,9 +103,9 @@ class Meetings(Plugin):
       info_list   = await self.get_items(meeting_id, "info")
       action_list = await self.get_items(meeting_id, "action")
 
-      await self.upload_file(evt, info_list, "info_items.json")
-      await self.upload_file(evt, action_list, "action_items.json")
-      await self.upload_file(evt, full_log, "full_log.json")
+      await self.upload_file(evt, info_list, "info_items.txt")
+      await self.upload_file(evt, action_list, "action_items.txt")
+      await self.upload_file(evt, full_log, "full_log.txt")
       
       # Clear the logs
       dbq = """
@@ -144,12 +151,12 @@ class Meetings(Plugin):
       await self.database.execute(dbq, meeting, timestamp, sender, message)
       
       # Mark an action item
-      if re.search("\!action", evt.content.body):
+      if re.search("\^action", evt.content.body):
         await self.log_tag("action", evt)
         await evt.react("🚩")
 
       # Mark an info item
-      if re.search("\!info", evt.content.body):
+      if re.search("\^info", evt.content.body):
         await self.log_tag("info", evt)
         await evt.react("✏️️")
 
