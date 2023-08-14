@@ -1,2 +1,2 @@
-# Log paths
-log_file: ./meeting_log.txt
+# How to log the meeting?
+backend: fedora

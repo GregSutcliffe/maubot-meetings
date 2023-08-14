@@ -1,26 +1,35 @@
-from typing import Tuple
+from typing import Tuple, Type
+from datetime import datetime
+
 from mautrix.client import Client
 from mautrix.types import (Event, StateEvent, EventID, UserID, FileInfo, MessageType, EventType,
                            MediaMessageEventContent, ReactionEvent, RedactionEvent)
 from mautrix.types.event.message import media_reply_fallback_body_map
+from mautrix.util.async_db import UpgradeTable, Scheme
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
+
 from maubot import Plugin, MessageEvent
 from maubot.handlers import command
-from mautrix.util.async_db import UpgradeTable, Scheme
-from datetime import datetime
+
 import re
 import json
+import importlib
 
 # Setup database
 from .db import upgrade_table
     
 class Config(BaseProxyConfig):
   def do_update(self, helper: ConfigUpdateHelper) -> None:
-    helper.copy("log_file")
+    helper.copy("backend")
 
 class Meetings(Plugin):
-  #async def start(self) -> None:
-  #  self.config.load_and_update()
+  async def start(self) -> None:
+    self.config.load_and_update()
+    self.backend = importlib.import_module(f'.{self.config["backend"]}', package='meetings')
+
+  @classmethod
+  def get_config_class(cls) -> Type[BaseProxyConfig]:
+    return Config
 
   @classmethod
   def get_db_upgrade_table(cls) -> UpgradeTable:
@@ -77,8 +86,9 @@ class Meetings(Plugin):
   def meeting_id(self, room_id):
     return f"{room_id}-{datetime.today().strftime('%Y-%m-%d')}"
     
-  @command.new(aliases="s")
+  @command.new()
   async def startmeeting(self, evt: MessageEvent) -> None:
+    self.backend.log_msg(self, 'Starting')
     meeting = await self.meeting_in_progress(evt.room_id)
     if meeting:
       await evt.respond("Meeting already in progress")
@@ -94,8 +104,9 @@ class Meetings(Plugin):
       await evt.respond(f'Meeting started at {time} UTC')
 
   
-  @command.new(aliases="e")
+  @command.new()
   async def endmeeting(self, evt: MessageEvent) -> None:
+    self.backend.log_msg(self, 'Ending')
     meeting = await self.meeting_in_progress(evt.room_id)
     if meeting:
       meeting_id  = self.meeting_id(evt.room_id)
