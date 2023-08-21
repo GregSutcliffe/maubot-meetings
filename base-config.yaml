@@ -1,2 +1,6 @@
-# How to log the meeting?
+# Min powerlevel to start/end meetings
+powerlevel: 50
+# Which backend to use
 backend: fedora
+backend_data: {}
+
