@@ -4,6 +4,9 @@ import json
 
 from datetime import datetime
 
+from .util import get_room_alias
+
+
 # helpers
 def config(meetbot):
   config = meetbot.config["backend_data"]["ansible"]
@@ -72,11 +75,15 @@ async def post_to_discourse(config, raw_post, time, logger):
 
 # required backend methods
 async def startmeeting(meetbot, event):
+  room_alias = await get_room_alias(meetbot.client, event.room_id)
+  
   meetbot.log.info(config(meetbot)["discourse_user"])
-  meetbot.log.info(f'Ansible: Meeting started in {event.room_id}')
+  meetbot.log.info(f'Ansible: Meeting started in {room_alias} {event.room_id}')
 
 async def endmeeting(meetbot, event, meeting_id):
-  meetbot.log.info(f'Ansible: Meeting ended in {event.room_id}')
+  room_alias = await get_room_alias(meetbot.client, event.room_id)
+  
+  meetbot.log.info(f'Ansible: Meeting ended in {room_alias} {event.room_id}')
 
   full_log = await meetbot.get_items(meeting_id)
   if len(full_log) == 0:
@@ -95,9 +102,8 @@ async def endmeeting(meetbot, event, meeting_id):
   info_list   = await meetbot.get_items(meeting_id, "info")
   action_list = await meetbot.get_items(meeting_id, "action")
 
-  # TODO get room name
   time = parse_db_time(full_log[0][1])
-  post_header = f"## Meeting Summary at {time}\n"
+  post_header = f"## Summary of Meeting in {room_alias} at {time}\n"
   table_header = "Time | User | Message\n--- | --- | ---\n"
 
   # Info items
