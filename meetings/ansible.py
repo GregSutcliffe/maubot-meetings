@@ -4,8 +4,7 @@ import json
 
 from datetime import datetime
 
-from .util import get_room_alias
-
+from .util import get_room_alias, get_room_name
 
 # helpers
 def config(meetbot):
@@ -53,14 +52,14 @@ async def upload_log_to_discourse(config, log_data, logger):
     logger.info(res.content)
     return("")
 
-async def post_to_discourse(config, raw_post, time, logger):
+async def post_to_discourse(config, raw_post, time, title, logger):
   api_user = config["discourse_user"]
   api_key  = config["discourse_key"]
   url = config["discourse_url"] + "/posts"
 
   headers = { 'Api-Key': api_key,
               'Api-Username': api_user }
-  payload = { 'title': f'Test post from MeetingBot - {time}',
+  payload = { 'title': title,
               'raw': raw_post,
               'category': config["category_id"]}
 
@@ -76,14 +75,16 @@ async def post_to_discourse(config, raw_post, time, logger):
 # required backend methods
 async def startmeeting(meetbot, event):
   room_alias = await get_room_alias(meetbot.client, event.room_id)
+  room_name  = await get_room_name(meetbot.client, event.room_id)
   
   meetbot.log.info(config(meetbot)["discourse_user"])
-  meetbot.log.info(f'Ansible: Meeting started in {room_alias} {event.room_id}')
+  meetbot.log.info(f'Ansible: Meeting started in {room_name} ({room_alias} / {event.room_id})')
 
 async def endmeeting(meetbot, event, meeting_id):
   room_alias = await get_room_alias(meetbot.client, event.room_id)
+  room_name  = await get_room_name(meetbot.client, event.room_id)
   
-  meetbot.log.info(f'Ansible: Meeting ended in {room_alias} {event.room_id}')
+  meetbot.log.info(f'Ansible: Meeting started in {room_name} ({room_alias} / {event.room_id})')
 
   full_log = await meetbot.get_items(meeting_id)
   if len(full_log) == 0:
@@ -103,14 +104,14 @@ async def endmeeting(meetbot, event, meeting_id):
   action_list = await meetbot.get_items(meeting_id, "action")
 
   time = parse_db_time(full_log[0][1])
-  post_header = f"## Summary of Meeting in {room_alias} at {time}\n"
+  post_header = f"Meeting Log | {room_name} | {time}\n"
   table_header = "Time | User | Message\n--- | --- | ---\n"
 
   # Info items
   raw_info    = parse_db_logs(info_list).decode('UTF-8')
   raw_actions = parse_db_logs(action_list).decode('UTF-8')
   
-  raw_post = post_header +\
+  raw_post = f"## {room_name} | {room_alias} | {time}"  +\
              "\n### Info Items\n" +\
              table_header +\
              raw_info + "\n"\
@@ -121,7 +122,7 @@ async def endmeeting(meetbot, event, meeting_id):
              log_path
 
   meetbot.log.info(raw_post)
-  pid = await post_to_discourse(config(meetbot), raw_post, time, meetbot.log)
+  pid = await post_to_discourse(config(meetbot), raw_post, time, post_header, meetbot.log)
   if pid != "":
     url = config(meetbot)["discourse_url"] + "/t/" + str(pid)
     await event.respond(f'Logs [posted to Discourse]({url})')
