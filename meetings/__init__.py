@@ -59,6 +59,14 @@ class Meetings(Plugin):
             """
       rows = await self.database.fetch(dbq, meeting_id)
     return rows
+
+  # Helper: Get message counts from the db
+  async def get_people_present(self, meeting_id):
+    dbq = """
+            SELECT sender, count(sender) FROM meeting_logs WHERE meeting_id = $1 GROUP BY sender
+          """
+    rows = await self.database.fetch(dbq, meeting_id)
+    return rows
   
   async def log_tag(self, tag, evt: MessageEvent) -> None:
     meeting   = self.meeting_id(evt.room_id)
@@ -68,17 +76,9 @@ class Meetings(Plugin):
           """
     await self.database.execute(dbq, meeting, timestamp, tag)
 
-  # Helper: upload a JSON file
-  async def upload_file(self, evt, items, filename):
-    if len(items) == 0:
-      return
-    
-    logs = tuple()
-    for row in items:
-      log = f"{row[1]} <{row[2]}> #{row[3]}"
-      logs += (log,)
-    
-    data = "\n".join(logs).encode("utf-8")
+  # Helper: upload a file
+  async def upload_file(self, evt, filename, file_contents):
+    data = file_contents.encode("utf-8")
     url = await self.client.upload_media(data, mime_type="text/plain")
     await evt.respond(MediaMessageEventContent(
       msgtype=MessageType.FILE,
@@ -160,7 +160,7 @@ class Meetings(Plugin):
             """
       meeting   = self.meeting_id(evt.room_id)
       timestamp = evt.timestamp
-      sender    = await self.client.get_displayname(evt.sender)
+      sender    = evt.sender
       message   = evt.content.body
       await self.database.execute(dbq, meeting, timestamp, sender, message)
       
