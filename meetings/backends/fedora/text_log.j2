@@ -1,0 +1,3 @@
+{% for line in items -%}
+    {{line['timestamp']}} <{{line['sender']}}> {{line['message']}}
+{% endfor %}
