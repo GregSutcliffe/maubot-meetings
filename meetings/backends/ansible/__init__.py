@@ -4,7 +4,7 @@ import json
 
 from datetime import datetime
 
-from .util import get_room_alias, get_room_name
+from ...util import get_room_alias, get_room_name
 
 # helpers
 def config(meetbot):

@@ -28,7 +28,7 @@ class Config(BaseProxyConfig):
 class Meetings(Plugin):
   async def start(self) -> None:
     self.config.load_and_update()
-    self.backend = importlib.import_module(f'.{self.config["backend"]}', package='meetings')
+    self.backend = importlib.import_module(f'.backends.{self.config["backend"]}', package='meetings')
 
   async def check_pl(self,evt):
     pls = await self.client.state_store.get_power_levels(evt.room_id)

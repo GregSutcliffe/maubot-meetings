@@ -1,4 +1,4 @@
-from .util import get_room_alias
+from ...util import get_room_alias
 
 async def startmeeting(meetbot, event):
   room_alias = await get_room_alias(meetbot.client, event.room_id)
@@ -14,4 +14,4 @@ async def endmeeting(meetbot, event, meeting_id):
   await meetbot.upload_file(event, info_list, "info_items.txt")
   await meetbot.upload_file(event, action_list, "action_items.txt")
   await meetbot.upload_file(event, full_log, "full_log.txt")
-  meetbot.log.info(f'Fedora: Meeting ended in {room_alias}')
+  meetbot.log.info(f'Fedora: Meeting ended ins {room_alias}')
