@@ -39,15 +39,12 @@ class Meetings(Plugin):
     return(permit)
       
   # Helper: check if a meeting is ongoing in this room
-  async def meeting_in_progress(self, room_id) -> bool:
+  async def meeting_in_progress(self, room_id):
     dbq = """
             SELECT * FROM meetings WHERE room_id = $1
           """
-    row = await self.database.fetch(dbq, room_id)
-    if row:
-      return True
-    else:
-      return False
+    row = await self.database.fetchrow(dbq, room_id)
+    return row
   
   # Helper: Get logs from the db  
   async def get_items(self, meeting_id, regex=False):
@@ -78,20 +75,32 @@ class Meetings(Plugin):
             UPDATE meeting_logs SET tag = $3 WHERE meeting_id = $1 AND timestamp = $2
           """
     await self.database.execute(dbq, meeting, timestamp, tag)
+  
+  async def change_topic(self, topic, evt: MessageEvent) -> None:
+    dbq = """
+            UPDATE meetings SET topic = $3 WHERE meeting_id = $1 AND room_id = $2
+          """
+    await self.database.execute(dbq, self.meeting_id(evt.room_id), evt.room_id, topic)
 
-  async def log_to_db(self, meeting, timestamp, sender, message):
+    # change the topic of the ^topic message to the topic
+    timestamp = evt.timestamp
+    dbq = """
+            UPDATE meeting_logs SET topic = $3 WHERE meeting_id = $1 AND timestamp = $2
+          """
+    await self.database.execute(dbq, self.meeting_id(evt.room_id), timestamp, topic)
+
+  async def log_to_db(self, meeting, timestamp, sender, message, topic):
       # Log the item to the db
       dbq = """
-              INSERT INTO meeting_logs (meeting_id, timestamp, sender, message) VALUES ($1, $2, $3, $4)
+              INSERT INTO meeting_logs (meeting_id, timestamp, sender, message, topic) VALUES ($1, $2, $3, $4, $5)
             """
-      
-      await self.database.execute(dbq, meeting, timestamp, sender, message)
+      await self.database.execute(dbq, meeting, timestamp, sender, message, topic)
 
   async def send_respond(self, event, message, meeting=None):
       # could not figure out how to get maubot to work passively on itself, so manually log messages
       # here instead
       if meeting and self.config["log_commands"]:
-         await self.log_to_db(self.meeting_id(event.room_id), event.timestamp, self.client.mxid, message)
+         await self.log_to_db(self.meeting_id(event.room_id), event.timestamp, self.client.mxid, message, meeting['topic'])
       await event.respond(message)
 
   # Helper: upload a file
@@ -124,18 +133,21 @@ class Meetings(Plugin):
       # Do backend-specific startmeeting things
       await self.backend.startmeeting(self, evt)
       
+      initial_topic = ""
+
       # Add the meeting to the meetings table
       dbq = """
-              INSERT INTO meetings (room_id, meeting_id) VALUES ($1, $2)
+              INSERT INTO meetings (room_id, meeting_id, topic) VALUES ($1, $2, $3)
             """
-      await self.database.execute(dbq, evt.room_id, self.meeting_id(evt.room_id))
+      await self.database.execute(dbq, evt.room_id, self.meeting_id(evt.room_id), initial_topic)
+      meeting = await self.meeting_in_progress(evt.room_id)
 
       # if we are logging the commands, log the !startmeeting command
       if self.config["log_commands"]:
-        await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body)
+        await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, initial_topic)
 
       # Notify the room
-      await self.send_respond(evt, f'Meeting started at {time_from_timestamp(evt.timestamp)} UTC', meeting=True)
+      await self.send_respond(evt, f'Meeting started at {time_from_timestamp(evt.timestamp)} UTC', meeting=meeting)
 
 
   
@@ -177,7 +189,7 @@ class Meetings(Plugin):
       if re.search("^\!", evt.content.body) and not self.config["log_commands"]:
         return
 
-      await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body)
+      await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, meeting["topic"])
       
       # Mark an action item
       if re.search("\^action", evt.content.body):
@@ -188,6 +200,13 @@ class Meetings(Plugin):
       if re.search("\^info", evt.content.body):
         await self.log_tag("info", evt)
         await evt.react("✏️️")
+      
+      # Change the topic
+      if re.search("\^topic", evt.content.body):
+        topic = evt.content.body.removeprefix("^topic").strip()
+        await self.change_topic(topic, evt)
+        await self.log_tag("topic", evt)
+        #await evt.react("✏️️")
 
   @classmethod
   def get_config_class(cls) -> Type[BaseProxyConfig]:
