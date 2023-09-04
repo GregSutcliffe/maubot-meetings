@@ -14,12 +14,16 @@ def render(meetbot, templatename, **kwargs):
       """timestampt to date filter"""
       return time_from_timestamp(int(timestamp))
     
+    def removecommand(line, command=""):
+      return line.removeprefix(f"^{command}").strip()
+    
     j2env = jinja2.Environment(
         trim_blocks=True,
         lstrip_blocks=True,
         autoescape=jinja2.select_autoescape(["html", "xml"]),
     )
     j2env.filters['formatdate'] = formatdate
+    j2env.filters['removecommand'] = removecommand
     template = meetbot.loader.sync_read_file(f"meetings/backends/fedora/{templatename}")
     return j2env.from_string(template.decode()).render(**kwargs)
 
@@ -35,6 +39,12 @@ async def endmeeting(meetbot, event, meeting_id):
         event,
         "html_log.html",
         render(meetbot, "html_log.j2", items=items, room=room_alias),
+    )
+
+    await meetbot.upload_file(
+        event,
+        "text_minutes.txt",
+        render(meetbot, "text_minutes.j2", items=items, room=room_alias),
     )
 
     meetbot.log.info(f"Fedora: Meeting ended in {room_alias}")

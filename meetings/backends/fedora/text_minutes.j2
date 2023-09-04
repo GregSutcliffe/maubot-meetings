@@ -1,0 +1,19 @@
+{%- set title = room + ": TODO:MEETINGNAME" -%}
+=====================================
+# {{title}}
+=====================================
+
+Meeting started by {{items[0]['sender']}} at {{items[0]['timestamp']|formatdate}}
+
+
+
+Meeting summary
+---------------
+{% for line in items %}
+    {% if line['tag'] == 'topic'%}
+* TOPIC: {{line['topic']}}
+    {% endif %}
+    {% if line['tag'] and line['tag'] != 'topic' %}
+{{'    ' if line['topic'] != ''}}* {{line['tag']|upper}}: {{line['message']|removecommand(command=line['tag'])}}
+    {% endif %}
+{% endfor %}
