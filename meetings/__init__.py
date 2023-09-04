@@ -16,14 +16,17 @@ import re
 import json
 import importlib
 
+
 # Setup database
 from .db import upgrade_table
+from .util import time_from_timestamp
     
 class Config(BaseProxyConfig):
   def do_update(self, helper: ConfigUpdateHelper) -> None:
     helper.copy("backend")
     helper.copy("backend_data")
     helper.copy("powerlevel")
+    helper.copy("log_commands")
 
 class Meetings(Plugin):
   async def start(self) -> None:
@@ -76,6 +79,21 @@ class Meetings(Plugin):
           """
     await self.database.execute(dbq, meeting, timestamp, tag)
 
+  async def log_to_db(self, meeting, timestamp, sender, message):
+      # Log the item to the db
+      dbq = """
+              INSERT INTO meeting_logs (meeting_id, timestamp, sender, message) VALUES ($1, $2, $3, $4)
+            """
+      
+      await self.database.execute(dbq, meeting, timestamp, sender, message)
+
+  async def send_respond(self, event, message, meeting=None):
+      # could not figure out how to get maubot to work passively on itself, so manually log messages
+      # here instead
+      if meeting and self.config["log_commands"]:
+         await self.log_to_db(self.meeting_id(event.room_id), event.timestamp, self.client.mxid, message)
+      await event.respond(message)
+
   # Helper: upload a file
   async def upload_file(self, evt, filename, file_contents):
     data = file_contents.encode("utf-8")
@@ -99,9 +117,9 @@ class Meetings(Plugin):
     meeting = await self.meeting_in_progress(evt.room_id)
     
     if not await self.check_pl(evt):
-      await evt.respond("You do not have permission to start a meeting")
+      await self.send_respond(evt, "You do not have permission to start a meeting", meeting=meeting)
     elif meeting:
-      await evt.respond("Meeting already in progress")
+      await self.send_respond(evt, "Meeting already in progress", meeting=meeting)
     else:
       # Do backend-specific startmeeting things
       await self.backend.startmeeting(self, evt)
@@ -111,21 +129,28 @@ class Meetings(Plugin):
               INSERT INTO meetings (room_id, meeting_id) VALUES ($1, $2)
             """
       await self.database.execute(dbq, evt.room_id, self.meeting_id(evt.room_id))
-      
+
+      # if we are logging the commands, log the !startmeeting command
+      if self.config["log_commands"]:
+        await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body)
+
       # Notify the room
-      time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-      await evt.respond(f'Meeting started at {time} UTC')
+      await self.send_respond(evt, f'Meeting started at {time_from_timestamp(evt.timestamp)} UTC', meeting=True)
+
 
   
   @command.new(aliases=["em"])
   async def endmeeting(self, evt: MessageEvent) -> None:
     meeting = await self.meeting_in_progress(evt.room_id)
-    
+
     if not await self.check_pl(evt):
-      await evt.respond("You do not have permission to end a meeting")
+      await self.send_respond(evt, "You do not have permission to end a meeting", meeting=meeting)
     if meeting:
       meeting_id  = self.meeting_id(evt.room_id)
       
+      #  Notify the room
+      await self.send_respond(evt, f'Meeting ended at {time_from_timestamp(evt.timestamp)} UTC', meeting=meeting)
+
       # Do backend-specific endmeeting things
       await self.backend.endmeeting(self, evt, meeting_id)
 
@@ -141,28 +166,18 @@ class Meetings(Plugin):
             """
       await self.database.execute(dbq, evt.room_id)  
 
-      #  Notify the room
-      time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-      await evt.respond(f'Meeting ended at {time} UTC')
     else:
-      await evt.respond("No meeting in progress")
+      await self.send_respond(evt, "No meeting in progress", meeting=meeting)
+
 
   @command.passive("")
   async def log_message(self, evt: MessageEvent, match: Tuple[str]) -> None:
     meeting = await self.meeting_in_progress(evt.room_id)
     if meeting:
-      if re.search("^\!", evt.content.body):
+      if re.search("^\!", evt.content.body) and not self.config["log_commands"]:
         return
 
-      # Log the item to the db
-      dbq = """
-              INSERT INTO meeting_logs (meeting_id, timestamp, sender, message) VALUES ($1, $2, $3, $4)
-            """
-      meeting   = self.meeting_id(evt.room_id)
-      timestamp = evt.timestamp
-      sender    = evt.sender
-      message   = evt.content.body
-      await self.database.execute(dbq, meeting, timestamp, sender, message)
+      await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body)
       
       # Mark an action item
       if re.search("\^action", evt.content.body):

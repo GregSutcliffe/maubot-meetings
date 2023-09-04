@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from mautrix.types import EventType
 from mautrix.errors import MNotFound
 
@@ -16,3 +18,6 @@ async def get_room_name(client, room_id):
     except MNotFound:
         # typically if a room is a direct message, it wont have a canonical alias
         return None
+
+def time_from_timestamp(timestamp):
+    return datetime.fromtimestamp(int(timestamp)/1e3).strftime("%Y-%m-%d %H:%M:%S")
