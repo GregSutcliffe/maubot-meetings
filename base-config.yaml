@@ -4,3 +4,5 @@ powerlevel: 50
 backend: fedora
 backend_data: {}
 
+# include ! commands and responses from the bot itself in logs 
+log_commands: false

@@ -1,8 +1,8 @@
 import jinja2
 import os
-from ...util import get_room_alias
+from datetime import datetime
+from ...util import get_room_alias, time_from_timestamp
 from maubot.loader import BasePluginLoader
-
 
 async def startmeeting(meetbot, event):
     room_alias = await get_room_alias(meetbot.client, event.room_id)
@@ -10,11 +10,16 @@ async def startmeeting(meetbot, event):
 
 
 def render(meetbot, templatename, **kwargs):
+    def formatdate(timestamp):
+      """timestampt to date filter"""
+      return time_from_timestamp(int(timestamp))
+    
     j2env = jinja2.Environment(
         trim_blocks=True,
         lstrip_blocks=True,
         autoescape=jinja2.select_autoescape(["html", "xml"]),
     )
+    j2env.filters['formatdate'] = formatdate
     template = meetbot.loader.sync_read_file(f"meetings/backends/fedora/{templatename}")
     return j2env.from_string(template.decode()).render(**kwargs)
 
