@@ -19,5 +19,5 @@ async def get_room_name(client, room_id):
         # typically if a room is a direct message, it wont have a canonical alias
         return None
 
-def time_from_timestamp(timestamp):
-    return datetime.fromtimestamp(int(timestamp)/1e3).strftime("%Y-%m-%d %H:%M:%S")
+def time_from_timestamp(timestamp, format="%Y-%m-%d %H:%M:%S"):
+    return datetime.fromtimestamp(int(timestamp)/1e3).strftime(format)
