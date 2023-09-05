@@ -11,9 +11,25 @@ Meeting summary
 ---------------
 {% for line in items %}
     {% if line['tag'] == 'topic'%}
-* TOPIC: {{line['topic']}}
+* TOPIC: {{line['topic']}} ({{line['sender']}}, {{line['timestamp']|formattime}})
     {% endif %}
     {% if line['tag'] and line['tag'] != 'topic' %}
-{{'    ' if line['topic'] != ''}}* {{line['tag']|upper}}: {{line['message']|removecommand(command=line['tag'])}}
+{{'    ' if line['topic'] != ''}}* {{line['tag']|upper}}: {{line['message']|removecommand(command=line['tag'])}} ({{line['sender']}}, {{line['timestamp']|formattime}})
     {% endif %}
+{% endfor %}
+
+Meeting ended at {{items[-1]['timestamp']|formatdate}}
+
+Action items
+------------
+{% for line in items %}
+    {% if line['tag'] == 'action'%}
+* {{line['message']|removecommand(command=line['tag'])}} 
+    {% endif %}
+{% endfor %}
+
+People Present (lines said)
+---------------------------
+{% for person in people_present | reverse %}
+* {{person['sender']}} ({{person['count']}})
 {% endfor %}

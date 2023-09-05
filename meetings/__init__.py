@@ -63,7 +63,7 @@ class Meetings(Plugin):
   # Helper: Get message counts from the db
   async def get_people_present(self, meeting_id):
     dbq = """
-            SELECT sender, count(sender) FROM meeting_logs WHERE meeting_id = $1 GROUP BY sender
+            SELECT sender, count(sender) as count FROM meeting_logs WHERE meeting_id = $1 GROUP BY sender ORDER BY count
           """
     rows = await self.database.fetch(dbq, meeting_id)
     return rows
