@@ -19,7 +19,7 @@ import importlib
 
 # Setup database
 from .db import upgrade_table
-from .util import time_from_timestamp
+from .util import time_from_timestamp, get_room_name
     
 class Config(BaseProxyConfig):
   def do_update(self, helper: ConfigUpdateHelper) -> None:
@@ -122,9 +122,9 @@ class Meetings(Plugin):
     return f"{room_id}-{datetime.today().strftime('%Y-%m-%d')}"
     
   @command.new(aliases=["sm"])
-  async def startmeeting(self, evt: MessageEvent) -> None:
+  @command.argument("meetingname", pass_raw=True)
+  async def startmeeting(self, evt: MessageEvent, meetingname) -> None:
     meeting = await self.meeting_in_progress(evt.room_id)
-    
     if not await self.check_pl(evt):
       await self.send_respond(evt, "You do not have permission to start a meeting", meeting=meeting)
     elif meeting:
@@ -135,11 +135,15 @@ class Meetings(Plugin):
       
       initial_topic = ""
 
+      if not meetingname:
+        roomname = await get_room_name(self.client, evt.room_id)
+        meetingname = f'{roomname} Meeting started {time_from_timestamp(evt.timestamp)}'
+
       # Add the meeting to the meetings table
       dbq = """
-              INSERT INTO meetings (room_id, meeting_id, topic) VALUES ($1, $2, $3)
+              INSERT INTO meetings (room_id, meeting_id, topic, meeting_name) VALUES ($1, $2, $3, $4)
             """
-      await self.database.execute(dbq, evt.room_id, self.meeting_id(evt.room_id), initial_topic)
+      await self.database.execute(dbq, evt.room_id, self.meeting_id(evt.room_id), initial_topic, meetingname)
       meeting = await self.meeting_in_progress(evt.room_id)
 
       # if we are logging the commands, log the !startmeeting command
@@ -148,6 +152,7 @@ class Meetings(Plugin):
 
       # Notify the room
       await self.send_respond(evt, f'Meeting started at {time_from_timestamp(evt.timestamp)} UTC', meeting=meeting)
+      await self.send_respond(evt, f'The Meeting name is \'{meetingname}\'', meeting=meeting)
 
 
   
