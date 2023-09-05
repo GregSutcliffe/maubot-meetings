@@ -26,3 +26,7 @@ async def upgrade_v1(conn: Connection) -> None:
 async def upgrade_v2(conn: Connection) -> None:
   await conn.execute("ALTER TABLE meetings ADD COLUMN topic TEXT DEFAULT ''")
   await conn.execute("ALTER TABLE meeting_logs ADD COLUMN topic TEXT DEFAULT ''")
+
+@upgrade_table.register(description="add meeting_name")
+async def upgrade_v3(conn: Connection) -> None:
+  await conn.execute("ALTER TABLE meetings ADD COLUMN meeting_name TEXT NOT NULL")
