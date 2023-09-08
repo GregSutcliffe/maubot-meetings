@@ -9,7 +9,7 @@ async def upgrade_v1(conn: Connection) -> None:
   await conn.execute(
     """CREATE TABLE meetings (
          room_id TEXT PRIMARY KEY,
-         meeting_id TEXT NOT NULL,
+         meeting_id TEXT NOT NULL
     )"""
   )
   await conn.execute(
@@ -18,7 +18,7 @@ async def upgrade_v1(conn: Connection) -> None:
          timestamp TEXT NOT NULL,
          sender TEXT NOT NULL,
          message TEXT NOT NULL,
-         tag TEXT DEFAULT NULL,
+         tag TEXT DEFAULT NULL
     )"""
   )
 
