@@ -1,0 +1,61 @@
+{%- set title = name + " | " + alias + " | TODO:MEETINGNAME" -%}
+{% set vars = namespace() %}
+<body>
+    <h1>{{title}}</h1>
+    <span class="details">Meeting started by {{items[0]['sender']}} at {{items[0]['timestamp']|formatdate}}</span>
+    <br><br>
+    <h3>Meeting summary</h3>
+    <ol>
+        {% set vars.firsttopic = True %}
+        {% for line in items %}
+            {% if line['tag'] == 'topic'%}
+                {% if not vars.firsttopic %}</ol>{% endif %}
+                    <li>TOPIC: {{line['topic']}} ({{line['sender']}}, {{line['timestamp']|formattime}})</li>
+                    <ol type="a">
+                {% set vars.firsttopic = False %}
+            {% endif %}
+            {% if line['tag'] and line['tag'] != 'topic' %}
+                <li>{{line['tag']|upper}}: {{line['message']|removecommand(command=line['tag'])}} ({{line['sender']}}, {{line['timestamp']|formattime}})</li>
+            {% endif %}
+        {% endfor %}
+        {% if not vars.firsttopic %}
+            </ol>
+        {% endif %}
+    </ol>
+    <br/>
+    <br/>
+    <span class="details">Meeting ended at {{items[-1]['timestamp']|formatdate}}</span>
+    <br/>
+    <br/>
+
+
+
+<h3>Action items</h3>
+<ol>
+{% set vars.no_actions =True %}
+{% for line in items %}
+    {% if line['tag'] == 'action' %}
+        {% set vars.no_actions = False %}
+        <li>{{line['message']|removecommand(command=line['tag'])}}</li>
+    {% endif %}
+{% endfor %}
+{% if vars.no_actions %}
+    <li>(none)</li>
+{% endif %}
+</ol>
+<br><br>
+
+
+
+<h3>People present (lines said)</h3>
+<ol>
+{% for person in people_present | reverse %}
+<li>{{person['sender']}} ({{person['count']}})</li>
+{% endfor %}
+</ol>
+<br><br>
+
+</body>
+
+Full logs: {{ logs }}
+

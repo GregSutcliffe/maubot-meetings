@@ -1,15 +1,15 @@
+import jinja2
 import requests
 import tempfile
 import json
 
 from datetime import datetime
-
-from ...util import get_room_alias, get_room_name
+from ...util import get_room_alias, get_room_name, time_from_timestamp
+from maubot.loader import BasePluginLoader
 
 # helpers
 def config(meetbot):
   config = meetbot.config["backend_data"]["ansible"]
-  meetbot.log.debug("Config: " + config["discourse_url"] + "/u/" + config["discourse_user"])
   return(config)
   
 def parse_db_time(t):
@@ -25,6 +25,31 @@ def parse_db_logs(items):
   log_data = "\n".join(logs).encode("utf-8")
   return(log_data)
 
+def render(meetbot, templatename, **kwargs):
+    def formatdate(timestamp):
+      """timestampt to date filter"""
+      return time_from_timestamp(int(timestamp))
+
+    def formattime(timestamp):
+      """timestampt to date filter"""
+      return time_from_timestamp(int(timestamp), format="%H:%M:%S")
+
+    def removecommand(line, command=""):
+      return line.removeprefix(f"^{command}").strip()
+
+    j2env = jinja2.Environment(
+        trim_blocks=True,
+        lstrip_blocks=True,
+        autoescape=jinja2.select_autoescape(["html", "xml"]),
+    )
+    j2env.filters['formatdate'] = formatdate
+    j2env.filters['formattime'] = formattime
+    j2env.filters['removecommand'] = removecommand
+
+    template = meetbot.loader.sync_read_file(f"meetings/backends/ansible/{templatename}")
+    return j2env.from_string(template.decode()).render(**kwargs)
+
+# async helpers
 async def upload_log_to_discourse(config, log_data, logger):
   # DRY this
   api_user = config["discourse_user"]
@@ -52,7 +77,7 @@ async def upload_log_to_discourse(config, log_data, logger):
     logger.info(res.content)
     return("")
 
-async def post_to_discourse(config, raw_post, time, title, logger):
+async def post_to_discourse(config, raw_post, title, logger):
   api_user = config["discourse_user"]
   api_key  = config["discourse_key"]
   url = config["discourse_url"] + "/posts"
@@ -77,52 +102,35 @@ async def startmeeting(meetbot, event):
   room_alias = await get_room_alias(meetbot.client, event.room_id)
   room_name  = await get_room_name(meetbot.client, event.room_id)
   
-  meetbot.log.info(config(meetbot)["discourse_user"])
   meetbot.log.info(f'Ansible: Meeting started in {room_name} ({room_alias} / {event.room_id})')
+  meetbot.log.info(f'Will post to Discourse as {config(meetbot)["discourse_user"]}')
 
 async def endmeeting(meetbot, event, meeting_id):
-  room_alias = await get_room_alias(meetbot.client, event.room_id)
-  room_name  = await get_room_name(meetbot.client, event.room_id)
+  room_alias     = await get_room_alias(meetbot.client, event.room_id)
+  room_name      = await get_room_name(meetbot.client, event.room_id)
+  items          = await meetbot.get_items(meeting_id)
+  people_present = await meetbot.get_people_present(meeting_id)
   
-  meetbot.log.info(f'Ansible: Meeting started in {room_name} ({room_alias} / {event.room_id})')
+  meetbot.log.info(f'Ansible: Meeting ended in {room_name} ({room_alias} / {event.room_id})')
 
-  full_log = await meetbot.get_items(meeting_id)
-  if len(full_log) == 0:
+  if len(items) == 0:
     meetbot.log.info("No entries")
+    await event.respond('No logs to post to Discourse')
     return()
 
   # Upload full_log to Discourse
   log_path = await upload_log_to_discourse(
     config(meetbot),
-    parse_db_logs(full_log).decode('UTF-8'),
+    render(meetbot, "text_log.j2", items=items),
     meetbot.log
   )
   meetbot.log.info(f'Discourse Log URL: {log_path}')
   
-  # Get summaries
-  info_list   = await meetbot.get_items(meeting_id, "info")
-  action_list = await meetbot.get_items(meeting_id, "action")
+  minutes = render(meetbot, "html_minutes.j2", items=items, name=room_name, alias=room_alias, people_present=people_present, logs=log_path),
+  meetbot.log.info(f'Discourse Log URL: {minutes}')
+  title = f"Meeting Log | {room_name} | { time_from_timestamp(int(items[0]['timestamp'])) }"
 
-  time = parse_db_time(full_log[0][1])
-  post_header = f"Meeting Log | {room_name} | {time}\n"
-  table_header = "Time | User | Message\n--- | --- | ---\n"
-
-  # Info items
-  raw_info    = parse_db_logs(info_list).decode('UTF-8')
-  raw_actions = parse_db_logs(action_list).decode('UTF-8')
-  
-  raw_post = f"## {room_name} | {room_alias} | {time}"  +\
-             "\n### Info Items\n" +\
-             table_header +\
-             raw_info + "\n"\
-             "\n### Action Items\n" +\
-             table_header +\
-             raw_actions + "\n" +\
-             "\n Full log available here:" +\
-             log_path
-
-  meetbot.log.info(raw_post)
-  pid = await post_to_discourse(config(meetbot), raw_post, time, post_header, meetbot.log)
+  pid = await post_to_discourse(config(meetbot), minutes, title, meetbot.log)
   if pid != "":
     url = config(meetbot)["discourse_url"] + "/t/" + str(pid)
     await event.respond(f'Logs [posted to Discourse]({url})')

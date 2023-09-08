@@ -16,7 +16,6 @@ import re
 import json
 import importlib
 
-
 # Setup database
 from .db import upgrade_table
 from .util import time_from_timestamp, get_room_name
