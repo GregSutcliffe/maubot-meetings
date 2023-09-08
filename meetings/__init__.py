@@ -74,7 +74,7 @@ class Meetings(Plugin):
     dbq = """
             UPDATE meeting_logs SET tag = $3 WHERE meeting_id = $1 AND timestamp = $2
           """
-    await self.database.execute(dbq, meeting, timestamp, tag)
+    await self.database.execute(dbq, meeting, str(timestamp), tag)
   
   async def change_topic(self, topic, evt: MessageEvent) -> None:
     dbq = """
@@ -87,14 +87,14 @@ class Meetings(Plugin):
     dbq = """
             UPDATE meeting_logs SET topic = $3 WHERE meeting_id = $1 AND timestamp = $2
           """
-    await self.database.execute(dbq, self.meeting_id(evt.room_id), timestamp, topic)
+    await self.database.execute(dbq, self.meeting_id(evt.room_id), str(timestamp), topic)
 
   async def log_to_db(self, meeting, timestamp, sender, message, topic):
       # Log the item to the db
       dbq = """
               INSERT INTO meeting_logs (meeting_id, timestamp, sender, message, topic) VALUES ($1, $2, $3, $4, $5)
             """
-      await self.database.execute(dbq, meeting, timestamp, sender, message, topic)
+      await self.database.execute(dbq, meeting, str(timestamp), sender, message, topic)
 
   async def send_respond(self, event, message, meeting=None):
       # could not figure out how to get maubot to work passively on itself, so manually log messages
