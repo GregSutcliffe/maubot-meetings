@@ -87,6 +87,12 @@ class Meetings(Plugin):
             UPDATE meeting_logs SET topic = $3 WHERE meeting_id = $1 AND timestamp = $2
           """
     await self.database.execute(dbq, self.meeting_id(evt.room_id), str(timestamp), topic)
+  
+  async def change_meetingname(self, meetingname, evt: MessageEvent) -> None:
+    dbq = """
+            UPDATE meetings SET meeting_name = $3 WHERE meeting_id = $1 AND room_id = $2
+          """
+    await self.database.execute(dbq, self.meeting_id(evt.room_id), evt.room_id, meetingname)
 
   async def log_to_db(self, meeting, timestamp, sender, message, topic):
       # Log the item to the db
@@ -136,7 +142,7 @@ class Meetings(Plugin):
 
       if not meetingname:
         roomname = await get_room_name(self.client, evt.room_id)
-        meetingname = f'{roomname} Meeting started {time_from_timestamp(evt.timestamp)}'
+        meetingname = f'{roomname}'
 
       # Add the meeting to the meetings table
       dbq = """
@@ -168,7 +174,7 @@ class Meetings(Plugin):
       await self.send_respond(evt, f'Meeting ended at {time_from_timestamp(evt.timestamp)} UTC', meeting=meeting)
 
       # Do backend-specific endmeeting things
-      await self.backend.endmeeting(self, evt, meeting_id)
+      await self.backend.endmeeting(self, evt, meeting)
 
       # Clear the logs
       dbq = """
@@ -211,6 +217,16 @@ class Meetings(Plugin):
         await self.change_topic(topic, evt)
         await self.log_tag("topic", evt)
         #await evt.react("✏️️")
+
+      # Change the meetingname
+      if re.search("\^meetingname", evt.content.body):
+        meetingname = evt.content.body.removeprefix("^meetingname").strip()
+        if meetingname:
+          await self.change_meetingname(meetingname, evt)
+          await self.send_respond(evt, f'The Meeting name has been set to \'{meetingname}\'', meeting=meeting)
+        else:
+          await self.send_respond(evt, f"Meeting name cannot be blank. The meeting name is still \'{meeting['meeting_name']}\'", meeting=meeting)
+
 
   @classmethod
   def get_config_class(cls) -> Type[BaseProxyConfig]:
