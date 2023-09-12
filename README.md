@@ -11,12 +11,20 @@ Install the plugin into Maubot as normal, and associate it to a Matrix account
 - !endmeeting - Ends a meeting
 
 During the meeting the bot will log *all* text messages to the internal plugin
-DB. If a message contains "^info" or "^action" anywhere in the body, the bot
-will add a reaction and store a tag.
+DB. It will also look for things starting "^" and perform an action if found.
+The following in-line commands are supported:
 
-When "!endmeeting" is called, the bot will emit 3 files - the "info" items, the
-"action" items, and the full meeting log. Currently these are sent to the room
-as TXT log files.
+- ^meetingname - set the meetingname (responds with a notice)
+- ^topic - set the topic (no reaction for this at present)
+- ^info - log an Info item (and add a reaction)
+- ^action - log an Action item (and add a reaction)
+
+When "!endmeeting" is called, the bot will pass the control to the backend
+plugin (currently either `ansible` or `fedora`). This will determine what is
+done with the logs:
+
+- Ansible posts the logs to https://forum.ansible.com
+- Fedora posts the logs aas files to the Matrix room (Mote support in progress)
 
 # Permissions
 
@@ -37,5 +45,13 @@ backend_data:
         discourse_url: https://forum.ansible.com
         category_id: 15
 ```
+
+# Optional dependencies
+
+Maubot has no way to force extra dependencies, so we list them here:
+
+- Ansible backend: none
+- Fedora backend:
+  - slugify
 
 
