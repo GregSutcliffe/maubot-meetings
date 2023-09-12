@@ -46,7 +46,7 @@
     </head>
 <body>
     <h1>{{title}}</h1>
-    <span class="details">Meeting started by {{items[0]['sender']}} at {{items[0]['timestamp']|formatdate}}</span>
+    <span class="details">Meeting started by {{items[0]['sender']}} at {{items[0]['timestamp']|formattime}} UTC</span>
     <br><br>
     <h3>Meeting summary</h3>
     <ol>
@@ -54,7 +54,7 @@
         {% for line in items %}
             {% if line['tag'] == 'topic'%}
                 {% if not vars.firsttopic %}</ol>{% endif %}
-                    <li>TOPIC: {{line['topic']}} ({{line['sender']}}, {{line['timestamp']|formattime}})</li>
+                    <li><b>TOPIC:</b><b class="TOPIC">{{line['topic']}}</b> <span class="details">({{line['sender']}}, {{line['timestamp']|formattime}})</span></li>
                     <ol type="a">
                 {% set vars.firsttopic = False %}
             {% endif %}
@@ -68,7 +68,7 @@
     </ol>
     <br/>
     <br/>
-    <span class="details">Meeting ended at {{items[-1]['timestamp']|formatdate}}</span>
+    <span class="details">Meeting ended at {{items[-1]['timestamp']|formattime}} UTC</span>
     <br/>
     <br/>
 
