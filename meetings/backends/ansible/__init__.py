@@ -105,11 +105,11 @@ async def startmeeting(meetbot, event):
   meetbot.log.info(f'Ansible: Meeting started in {room_name} ({room_alias} / {event.room_id})')
   meetbot.log.info(f'Will post to Discourse as {config(meetbot)["discourse_user"]}')
 
-async def endmeeting(meetbot, event, meeting_id):
+async def endmeeting(meetbot, event, meeting):
   room_alias     = await get_room_alias(meetbot.client, event.room_id)
   room_name      = await get_room_name(meetbot.client, event.room_id)
-  items          = await meetbot.get_items(meeting_id)
-  people_present = await meetbot.get_people_present(meeting_id)
+  items          = await meetbot.get_items(meeting['meeting_id'])
+  people_present = await meetbot.get_people_present(meeting['meeting_id'])
   
   meetbot.log.info(f'Ansible: Meeting ended in {room_name} ({room_alias} / {event.room_id})')
 
