@@ -76,8 +76,8 @@ async def endmeeting(meetbot, event, meeting):
 
     writeToFile(path, f"{filename}.log.txt", render(meetbot, "text_log.j2", items=items))
     writeToFile(path, f"{filename}.log.html",render(meetbot, "html_log.j2", items=items, room=room_alias))
-    writeToFile(path, f"{filename}.txt", render(meetbot, "text_minutes.j2", items=items, room=room_alias, people_present=people_present))
-    writeToFile(path, f"{filename}.html", render(meetbot, "html_minutes.j2", items=items, room=room_alias, people_present=people_present))
+    writeToFile(path, f"{filename}.txt", render(meetbot, "text_minutes.j2", items=items, room=room_alias, people_present=people_present, meeting_name=meeting['meeting_name']))
+    writeToFile(path, f"{filename}.html", render(meetbot, "html_minutes.j2", items=items, room=room_alias, people_present=people_present, meeting_name=meeting['meeting_name']))
 
     # await meetbot.upload_file(
     #     event, f"{filename}.log.txt", render(meetbot, "text_log.j2", items=items)
