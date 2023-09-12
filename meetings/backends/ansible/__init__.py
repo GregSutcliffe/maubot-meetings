@@ -126,7 +126,7 @@ async def endmeeting(meetbot, event, meeting):
   )
   meetbot.log.info(f'Discourse Log URL: {log_path}')
   
-  minutes = render(meetbot, "html_minutes.j2", items=items, name=room_name, alias=room_alias, people_present=people_present, logs=log_path),
+  minutes = render(meetbot, "html_minutes.j2", items=items, name=meeting['meeting_name'], room=room_name, alias=room_alias, people_present=people_present, logs=log_path),
   meetbot.log.info(f'Discourse Log URL: {minutes}')
   title = f"Meeting Log | {room_name} | { time_from_timestamp(int(items[0]['timestamp'])) }"
 
