@@ -33,7 +33,7 @@ class Meetings(Plugin):
     self.backend = importlib.import_module(f'.backends.{self.config["backend"]}', package='meetings')
 
   async def check_pl(self,evt):
-    pls = await self.client.state_store.get_power_levels(evt.room_id)
+    pls = await self.client.get_state_event(evt.room_id, EventType.ROOM_POWER_LEVELS)
     permit = pls.get_user_level(evt.sender) >= self.config["powerlevel"]
     return(permit)
       
@@ -131,7 +131,7 @@ class Meetings(Plugin):
   async def startmeeting(self, evt: MessageEvent, meetingname) -> None:
     meeting = await self.meeting_in_progress(evt.room_id)
     if not await self.check_pl(evt):
-      await self.send_respond(evt, "You do not have permission to start a meeting", meeting=meeting)
+      await self.send_respond(evt, "You do not have permission to start a meeting.", meeting=meeting)
     elif meeting:
       await self.send_respond(evt, "Meeting already in progress", meeting=meeting)
     else:
