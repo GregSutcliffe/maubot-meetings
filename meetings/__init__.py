@@ -202,6 +202,19 @@ class Meetings(Plugin):
           await self.change_meetingname(name, evt)
           await evt.react("✅")
 
+  @command.new("topic", aliases=["t"], help="Set the next topic")
+  @command.argument("name", pass_raw=True, required=True)
+  async def handle_topic(self, evt: MessageEvent, name: str = "") -> None:
+    meeting = await self.meeting_in_progress(evt.room_id)
+
+    if meeting:
+      if not await self.check_pl(evt):
+        await self.send_respond(evt, "You do not have permission to set the topic.", meeting=meeting)
+      else:
+        if name:
+          await self.change_topic(name, evt)
+          await evt.react("✅")
+
   @command.passive("")
   async def log_message(self, evt: MessageEvent, match: Tuple[str]) -> None:
     meeting = await self.meeting_in_progress(evt.room_id)
@@ -221,13 +234,6 @@ class Meetings(Plugin):
         await self.log_tag("info", evt)
         await evt.react("✏️️")
       
-      # Change the topic
-      if re.search("\^topic", evt.content.body):
-        topic = evt.content.body.removeprefix("^topic").strip()
-        await self.change_topic(topic, evt)
-        await self.log_tag("topic", evt)
-        #await evt.react("✏️️")
-
 
   @classmethod
   def get_config_class(cls) -> Type[BaseProxyConfig]:
