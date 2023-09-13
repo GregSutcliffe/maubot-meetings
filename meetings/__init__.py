@@ -159,16 +159,14 @@ class Meetings(Plugin):
       await self.send_respond(evt, f'Meeting started at {time_from_timestamp(evt.timestamp)} UTC', meeting=meeting)
       await self.send_respond(evt, f'The Meeting name is \'{meetingname}\'', meeting=meeting)
 
-
-  
   @command.new(aliases=["em"])
   async def endmeeting(self, evt: MessageEvent) -> None:
     meeting = await self.meeting_in_progress(evt.room_id)
 
     if not await self.check_pl(evt):
-      await self.send_respond(evt, "You do not have permission to end a meeting", meeting=meeting)
+      await self.send_respond(evt, "You do not have permission to end a meeting.", meeting=meeting)
     if meeting:
-      meeting_id  = self.meeting_id(evt.room_id)
+      meeting_id = self.meeting_id(evt.room_id)
       
       #  Notify the room
       await self.send_respond(evt, f'Meeting ended at {time_from_timestamp(evt.timestamp)} UTC', meeting=meeting)
@@ -191,6 +189,18 @@ class Meetings(Plugin):
     else:
       await self.send_respond(evt, "No meeting in progress", meeting=meeting)
 
+  @command.new("meetingname", aliases=["mn"], help="Rename the meeting")
+  @command.argument("name", pass_raw=True, required=True)
+  async def rename_meeting(self, evt: MessageEvent, name: str = "") -> None:
+    meeting = await self.meeting_in_progress(evt.room_id)
+
+    if meeting:
+      if not await self.check_pl(evt):
+        await self.send_respond(evt, "You do not have permission to rename a meeting.", meeting=meeting)
+      else:
+        if name:
+          await self.change_meetingname(name, evt)
+          await evt.react("✅")
 
   @command.passive("")
   async def log_message(self, evt: MessageEvent, match: Tuple[str]) -> None:
@@ -217,15 +227,6 @@ class Meetings(Plugin):
         await self.change_topic(topic, evt)
         await self.log_tag("topic", evt)
         #await evt.react("✏️️")
-
-      # Change the meetingname
-      if re.search("\^meetingname", evt.content.body):
-        meetingname = evt.content.body.removeprefix("^meetingname").strip()
-        if meetingname:
-          await self.change_meetingname(meetingname, evt)
-          await self.send_respond(evt, f'The Meeting name has been set to \'{meetingname}\'', meeting=meeting)
-        else:
-          await self.send_respond(evt, f"Meeting name cannot be blank. The meeting name is still \'{meeting['meeting_name']}\'", meeting=meeting)
 
 
   @classmethod
