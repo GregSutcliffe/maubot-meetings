@@ -81,13 +81,6 @@ class Meetings(Plugin):
           """
     await self.database.execute(dbq, self.meeting_id(evt.room_id), evt.room_id, topic)
 
-    # change the topic of the ^topic message to the topic
-    timestamp = evt.timestamp
-    dbq = """
-            UPDATE meeting_logs SET topic = $3 WHERE meeting_id = $1 AND timestamp = $2
-          """
-    await self.database.execute(dbq, self.meeting_id(evt.room_id), str(timestamp), topic)
-  
   async def change_meetingname(self, meetingname, evt: MessageEvent) -> None:
     dbq = """
             UPDATE meetings SET meeting_name = $3 WHERE meeting_id = $1 AND room_id = $2
@@ -202,6 +195,10 @@ class Meetings(Plugin):
           await self.change_meetingname(name, evt)
           await evt.react("✅")
 
+      # if we are logging the commands, log the !startmeeting command
+      if self.config["log_commands"]:
+        await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, meeting["topic"])
+
   @command.new("topic", aliases=["t"], help="Set the next topic")
   @command.argument("name", pass_raw=True, required=True)
   async def handle_topic(self, evt: MessageEvent, name: str = "") -> None:
@@ -215,14 +212,19 @@ class Meetings(Plugin):
           await self.change_topic(name, evt)
           await evt.react("✅")
 
+      # if we are logging the commands, log the !startmeeting command
+      if self.config["log_commands"]:
+        await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, name)
+
   @command.passive("")
   async def log_message(self, evt: MessageEvent, match: Tuple[str]) -> None:
     meeting = await self.meeting_in_progress(evt.room_id)
     if meeting:
-      if re.search("^\!", evt.content.body) and not self.config["log_commands"]:
+      if re.search("^\!", evt.content.body):
         return
 
-      await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, meeting["topic"])
+      if self.config["log_commands"]:
+        await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, meeting["topic"])
       
       # Mark an action item
       if re.search("\^action", evt.content.body):
