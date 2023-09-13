@@ -25,7 +25,6 @@ class Config(BaseProxyConfig):
     helper.copy("backend")
     helper.copy("backend_data")
     helper.copy("powerlevel")
-    helper.copy("log_commands")
 
 class Meetings(Plugin):
   async def start(self) -> None:
@@ -97,8 +96,7 @@ class Meetings(Plugin):
   async def send_respond(self, event, message, meeting=None):
       # could not figure out how to get maubot to work passively on itself, so manually log messages
       # here instead
-      if meeting and self.config["log_commands"]:
-         await self.log_to_db(self.meeting_id(event.room_id), event.timestamp, self.client.mxid, message, meeting['topic'])
+      await self.log_to_db(self.meeting_id(event.room_id), event.timestamp, self.client.mxid, message, meeting['topic'])
       await event.respond(message)
 
   # Helper: upload a file
@@ -144,9 +142,8 @@ class Meetings(Plugin):
       await self.database.execute(dbq, evt.room_id, self.meeting_id(evt.room_id), initial_topic, meetingname)
       meeting = await self.meeting_in_progress(evt.room_id)
 
-      # if we are logging the commands, log the !startmeeting command
-      if self.config["log_commands"]:
-        await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, initial_topic)
+      # we are logging the commands, log the !startmeeting command
+      await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, initial_topic)
 
       # Notify the room
       await self.send_respond(evt, f'Meeting started at {time_from_timestamp(evt.timestamp)} UTC', meeting=meeting)
@@ -195,9 +192,8 @@ class Meetings(Plugin):
           await self.change_meetingname(name, evt)
           await evt.react("✅")
 
-      # if we are logging the commands, log the !startmeeting command
-      if self.config["log_commands"]:
-        await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, meeting["topic"])
+      # we are logging the commands, log the !startmeeting command
+      await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, meeting["topic"])
 
   @command.new("topic", aliases=["t"], help="Set the next topic")
   @command.argument("name", pass_raw=True, required=True)
@@ -205,16 +201,14 @@ class Meetings(Plugin):
     meeting = await self.meeting_in_progress(evt.room_id)
 
     if meeting:
+      await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, name)
       if not await self.check_pl(evt):
         await self.send_respond(evt, "You do not have permission to set the topic.", meeting=meeting)
       else:
         if name:
+          await self.log_tag("topic", evt)
           await self.change_topic(name, evt)
           await evt.react("✅")
-
-      # if we are logging the commands, log the !startmeeting command
-      if self.config["log_commands"]:
-        await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, name)
 
   @command.passive("")
   async def log_message(self, evt: MessageEvent, match: Tuple[str]) -> None:
@@ -223,8 +217,7 @@ class Meetings(Plugin):
       if re.search("^\!", evt.content.body):
         return
 
-      if self.config["log_commands"]:
-        await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, meeting["topic"])
+      await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, meeting["topic"])
       
       # Mark an action item
       if re.search("\^action", evt.content.body):
