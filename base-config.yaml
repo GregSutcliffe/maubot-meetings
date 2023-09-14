@@ -3,3 +3,13 @@ powerlevel: 50
 # Which backend to use
 backend: fedora
 backend_data: {}
+tags:
+  action: "🚩"
+  info: "✏️"
+  agreed: "👍"
+  rejected: "👎"
+  idea: "💭"
+  halp: "🛟"
+  link: "🔗"
+tags_commandprefix: \!
+tags_commandatstart: True
