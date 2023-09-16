@@ -25,7 +25,7 @@ async def startmeeting(meetbot, event):
     meetbot.log.info(f"Fedora: Meeting started in {room_alias}")
 
 
-def render(meetbot, templatename, **kwargs):
+def render(meetbot, templatename, autoescape=True, **kwargs):
     def formatdate(timestamp):
       """timestampt to date filter"""
       return time_from_timestamp(int(timestamp))
@@ -40,7 +40,7 @@ def render(meetbot, templatename, **kwargs):
     j2env = jinja2.Environment(
         trim_blocks=True,
         lstrip_blocks=True,
-        autoescape=jinja2.select_autoescape(["html", "xml"]),
+        autoescape=autoescape,
     )
     j2env.filters['formatdate'] = formatdate
     j2env.filters['formattime'] = formattime
@@ -74,9 +74,9 @@ async def endmeeting(meetbot, event, meeting):
     if not os.access(path, os.F_OK):
         os.makedirs(path)
 
-    writeToFile(path, f"{filename}.log.txt", render(meetbot, "text_log.j2", items=items))
+    writeToFile(path, f"{filename}.log.txt", render(meetbot, "text_log.j2", autoescape=False, items=items))
     writeToFile(path, f"{filename}.log.html",render(meetbot, "html_log.j2", items=items, room=room_alias))
-    writeToFile(path, f"{filename}.txt", render(meetbot, "text_minutes.j2", items=items, room=room_alias, people_present=people_present, meeting_name=meeting['meeting_name']))
+    writeToFile(path, f"{filename}.txt", render(meetbot, "text_minutes.j2", autoescape=False, items=items, room=room_alias, people_present=people_present, meeting_name=meeting['meeting_name']))
     writeToFile(path, f"{filename}.html", render(meetbot, "html_minutes.j2", items=items, room=room_alias, people_present=people_present, meeting_name=meeting['meeting_name']))
 
     # await meetbot.upload_file(
