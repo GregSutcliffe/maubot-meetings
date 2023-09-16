@@ -63,10 +63,10 @@ async def endmeeting(meetbot, event, meeting):
     starttime = time_from_timestamp(items[0]['timestamp'], format="%Y-%m-%d-%H.%M")
     startdate = time_from_timestamp(items[0]['timestamp'], format="%Y-%m-%d")
     filename = f"{slugify(meeting['meeting_name'])}.{starttime}"
-    url = f"{config['logs_baseurl']}{slugify(room_alias)}/{startdate}/{filename}"
+    url = f"{config['logs_baseurl']}{slugify(room_alias)}/{startdate}/"
 
     # TODO: Make this async
-    sendfedoramessage(meetbot, "meeting.complete", url=url)
+    sendfedoramessage(meetbot, "meeting.complete", url=url+filename)
 
     # create the directories if they don't exist
     # will look something like /meetbot_logs/web/meetbot/fedora-meeting-1-fedora-im/2023-09-01/
@@ -74,10 +74,25 @@ async def endmeeting(meetbot, event, meeting):
     if not os.access(path, os.F_OK):
         os.makedirs(path)
 
-    writeToFile(path, f"{filename}.log.txt", render(meetbot, "text_log.j2", autoescape=False, items=items))
-    writeToFile(path, f"{filename}.log.html",render(meetbot, "html_log.j2", items=items, room=room_alias))
-    writeToFile(path, f"{filename}.txt", render(meetbot, "text_minutes.j2", autoescape=False, items=items, room=room_alias, people_present=people_present, meeting_name=meeting['meeting_name']))
-    writeToFile(path, f"{filename}.html", render(meetbot, "html_minutes.j2", items=items, room=room_alias, people_present=people_present, meeting_name=meeting['meeting_name']))
+    template_vars = {
+        "items": items,
+        "room": room_alias,
+        "people_present": people_present,
+        "meeting_name": meeting["meeting_name"],
+    }
+
+    templates = [
+        ("text_log.j2", f"{filename}.log.txt", "Text Log"),
+        ("html_log.j2", f"{filename}.log.html", "HTML Log"),
+        ("text_minutes.j2", f"{filename}.txt", "Text Minutes"),
+        ("html_minutes.j2", f"{filename}.html", "HTML Minutes"),
+    ]
+
+    for template, file, label in templates:
+        autoescape = True if file.endswith(('.html','.htm', '.xml')) else False
+        rendered = render(meetbot, template, autoescape=autoescape, **template_vars)
+        writeToFile(path, file, rendered)
+        await event.respond(f'{label}: {url}{file}')
 
     # await meetbot.upload_file(
     #     event, f"{filename}.log.txt", render(meetbot, "text_log.j2", items=items)
