@@ -72,15 +72,17 @@ async def endmeeting(meetbot, event, meeting):
     )
     startdate = time_from_timestamp(items[0]["timestamp"], format="%Y-%m-%d")
     filename = f"{slugify(meeting['meeting_name'])}.{starttime}"
-    url = f"{config['logs_baseurl']}{slugify(room_alias)}/{startdate}/"
+    # makes a slugified room alias e.g. `#fedora-meeting:fedora.im` becomes `fedora-meeting_matrix-fedora-im`
+    slugified_room_alias = slugify(room_alias, replacements=[[':',"_matrix-"]], regex_pattern = r'[^-a-z0-9_]+')
+    url = f"{config['logs_baseurl']}{slugified_room_alias}/{startdate}/"
 
     # TODO: Make this async
     sendfedoramessage(meetbot, "meeting.complete", url=url + filename)
 
     # create the directories if they don't exist will look something like
-    # /meetbot_logs/web/meetbot/fedora-meeting-1-fedora-im/2023-09-01/
+    # /meetbot_logs/web/meetbot/fedora-meeting-1_matrix-fedora-im/2023-09-01/
     path = os.path.join(
-        config["logs_directory"], slugify(room_alias), startdate
+        config["logs_directory"], slugified_room_alias, startdate
     )
     if not os.access(path, os.F_OK):
         os.makedirs(path)
