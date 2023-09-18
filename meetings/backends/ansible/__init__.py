@@ -98,7 +98,7 @@ async def post_to_discourse(config, raw_post, title, logger):
     return("")
 
 # required backend methods
-async def startmeeting(meetbot, event):
+async def startmeeting(meetbot, event, meeting):
   room_alias = await get_room_alias(meetbot.client, event.room_id)
   room_name  = await get_room_name(meetbot.client, event.room_id)
   
