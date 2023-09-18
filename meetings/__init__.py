@@ -48,12 +48,12 @@ class Meetings(Plugin):
   async def get_items(self, meeting_id, regex=False):
     if regex:
       dbq = """
-              SELECT * FROM meeting_logs WHERE meeting_id = $1 AND tag LIKE $2
+              SELECT * FROM meeting_logs WHERE meeting_id = $1 AND tag LIKE $2 ORDER BY timestamp
             """
       rows = await self.database.fetch(dbq, meeting_id, regex)
     else:
       dbq = """
-              SELECT * FROM meeting_logs WHERE meeting_id = $1
+              SELECT * FROM meeting_logs WHERE meeting_id = $1 ORDER BY timestamp
             """
       rows = await self.database.fetch(dbq, meeting_id)
     return rows
@@ -126,8 +126,6 @@ class Meetings(Plugin):
     elif meeting:
       await self.send_respond(evt, "Meeting already in progress", meeting=meeting)
     else:
-      # Do backend-specific startmeeting things
-      await self.backend.startmeeting(self, evt)
       
       initial_topic = ""
 
@@ -148,6 +146,9 @@ class Meetings(Plugin):
       # Notify the room
       await self.send_respond(evt, f'Meeting started at {time_from_timestamp(evt.timestamp)} UTC', meeting=meeting)
       await self.send_respond(evt, f'The Meeting name is \'{meetingname}\'', meeting=meeting)
+
+      # Do backend-specific startmeeting things
+      await self.backend.startmeeting(self, evt, meeting)
 
   @command.new(aliases=["em"])
   async def endmeeting(self, evt: MessageEvent) -> None:
