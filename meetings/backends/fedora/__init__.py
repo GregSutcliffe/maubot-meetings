@@ -1,10 +1,13 @@
 import os
+import re
 
 import jinja2
 from fedora_messaging import api as fm_api
 from fedora_messaging import exceptions as fm_exceptions
 from meetbot_messages import MeetingCompleteV1, MeetingStartV1
 from slugify import slugify
+import httpx
+from httpx_gssapi import HTTPSPNEGOAuth
 
 from ...util import get_room_alias, time_from_timestamp
 
@@ -49,14 +52,49 @@ def writeToFile(path, filename, string):
     f.close()
 
 
+async def _get_fasname_from_mxid(meetbot, event, mxid):
+    matrix_username, matrix_server = re.findall(r"@(.*):(.*)", mxid)[0]
+    if matrix_server == "fedora.im":
+        # if server is fedora.im, thats the fas username, so we all good
+        return matrix_username
+    else:
+        # we have to look up to see if the user has set a matrix account in FAS
+        searchterm = f"matrix://{matrix_server}/{matrix_username}"
+        baseurl = meetbot.config["backend_data"]["fedora"]["fasjson_url"]
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                baseurl + "/v1/search/users/",
+                auth=HTTPSPNEGOAuth(),
+                params={"ircnick__exact": searchterm},
+            )
+        meetbot.log.error(response)
+        searchresult = response.json().get("result")
+
+        if len(searchresult) > 1:
+            user = searchresult[0]["username"]
+            await event.respond(
+                (
+                    f"Warning: MXID {mxid} is associated with multiple Fedora "
+                    f"Accounts ({[u['username'] for u in searchresult]}). Defaulting "
+                    f"to using {user} in Fedora Messaging messages"
+                )
+            )
+            return user
+        elif len(searchresult) == 0:
+            return mxid
+        else:
+            return searchresult[0]["username"]
+
+
 async def startmeeting(meetbot, event, meeting):
     room_alias = await get_room_alias(meetbot.client, event.room_id)
+    start_user = await _get_fasname_from_mxid(meetbot, event, event.sender)
     message = MeetingStartV1(
         body={
             "start_time": time_from_timestamp(
                 event.timestamp, format="%Y-%m-%dT%H:%M:%S+1000"
             ),
-            "start_user": event.sender,
+            "start_user": start_user,
             "location": room_alias,
             "meeting_name": meeting["meeting_name"],
         }
@@ -73,11 +111,16 @@ async def endmeeting(meetbot, event, meeting):
     starttime = time_from_timestamp(items[0]["timestamp"], format="%Y-%m-%d-%H.%M")
     startdate = time_from_timestamp(items[0]["timestamp"], format="%Y-%m-%d")
     filename = f"{slugify(meeting['meeting_name'])}.{starttime}"
-    # makes a slugified room alias e.g. `#fedora-meeting:fedora.im` becomes `fedora-meeting_matrix-fedora-im`
+    # makes a slugified room alias e.g. `#fedora-meeting:fedora.im` 
+    # becomes `fedora-meeting_matrix-fedora-im`
     slugified_room_alias = slugify(
         room_alias, replacements=[[":", "_matrix-"]], regex_pattern=r"[^-a-z0-9_]+"
     )
     url = f"{config['logs_baseurl']}{slugified_room_alias}/{startdate}/"
+
+    # TODO: chairs aren't implemented in the main part of meetings yet, so just use the
+    # user that started the meetings for now
+    chairs = [items[0]["sender"]]
 
     # create the directories if they don't exist will look something like
     # /meetbot_logs/web/meetbot/fedora-meeting-1_matrix-fedora-im/2023-09-01/
@@ -104,27 +147,38 @@ async def endmeeting(meetbot, event, meeting):
         rendered = render(meetbot, template, autoescape=autoescape, **template_vars)
         writeToFile(path, file, rendered)
         await event.respond(f"{label}: {url}{file}")
-    
+
+    # we build this up as a cache of {"@mxid:server.test": "fasname"} pairs, or if we can't find
+    # a fas username, just use the mxid. I'm doing this seperately to reduce dupilcate calls to
+    # FASJSON
+    fasnames = {}
+
     attendees = []
     for person in people_present:
-        attendees.append({"name": person['sender'], "lines_said": int(person['count'])})
+        mxid = person["sender"]
+        fasnames[mxid] = await _get_fasname_from_mxid(meetbot, event, mxid)
+        attendees.append({"name": fasnames[mxid], "lines_said": int(person["count"])})
+
+    for mxid in chairs:
+        if mxid not in fasnames.keys():
+            fasnames[mxid] = await _get_fasname_from_mxid(meetbot, event, mxid)
 
     message = MeetingCompleteV1(
         body={
             "start_time": time_from_timestamp(
                 items[0]["timestamp"], format="%Y-%m-%dT%H:%M:%S+1000"
             ),
-            "start_user": items[0]["sender"],
+            "start_user": fasnames[items[0]["sender"]],
             "end_time": time_from_timestamp(
                 event.timestamp, format="%Y-%m-%dT%H:%M:%S+1000"
             ),
-            "end_user": event.sender,
+            "end_user": fasnames[event.sender],
             "location": room_alias,
             "meeting_name": meeting["meeting_name"],
             "url": url,
             "attendees": attendees,
-            "chairs": [items[0]["sender"]],
-            "logs": [{"log_type": l, "log_url": f"{url}{f}"} for t, f, l in templates]
+            "chairs": [fasnames[c] for c in chairs],
+            "logs": [{"log_type": l, "log_url": f"{url}{f}"} for t, f, l in templates],
         }
     )
     # TODO: Make this async
