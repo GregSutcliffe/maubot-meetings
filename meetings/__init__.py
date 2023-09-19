@@ -154,28 +154,29 @@ class Meetings(Plugin):
   async def endmeeting(self, evt: MessageEvent) -> None:
     meeting = await self.meeting_in_progress(evt.room_id)
 
-    if not await self.check_pl(evt):
-      await self.send_respond(evt, "You do not have permission to end a meeting.", meeting=meeting)
     if meeting:
-      meeting_id = self.meeting_id(evt.room_id)
-      
-      #  Notify the room
-      await self.send_respond(evt, f'Meeting ended at {time_from_timestamp(evt.timestamp)} UTC', meeting=meeting)
+      if not await self.check_pl(evt):
+        await self.send_respond(evt, "You do not have permission to end a meeting.", meeting=meeting)
+      else: 
+        meeting_id = self.meeting_id(evt.room_id)
+        
+        #  Notify the room
+        await self.send_respond(evt, f'Meeting ended at {time_from_timestamp(evt.timestamp)} UTC', meeting=meeting)
 
-      # Do backend-specific endmeeting things
-      await self.backend.endmeeting(self, evt, meeting)
+        # Do backend-specific endmeeting things
+        await self.backend.endmeeting(self, evt, meeting)
 
-      # Clear the logs
-      dbq = """
-              DELETE FROM meeting_logs WHERE meeting_id = $1
-            """
-      await self.database.execute(dbq, meeting_id)
-      
-      # Remove the meeting from the meetings table
-      dbq = """
-              DELETE FROM meetings WHERE room_id = $1
-            """
-      await self.database.execute(dbq, evt.room_id)  
+        # Clear the logs
+        dbq = """
+                DELETE FROM meeting_logs WHERE meeting_id = $1
+              """
+        await self.database.execute(dbq, meeting_id)
+        
+        # Remove the meeting from the meetings table
+        dbq = """
+                DELETE FROM meetings WHERE room_id = $1
+              """
+        await self.database.execute(dbq, evt.room_id)  
 
     else:
       await self.send_respond(evt, "No meeting in progress", meeting=meeting)
