@@ -19,17 +19,24 @@ import importlib
 # Setup database
 from .db import upgrade_table
 from .util import time_from_timestamp, get_room_name
-    
+
 class Config(BaseProxyConfig):
   def do_update(self, helper: ConfigUpdateHelper) -> None:
     helper.copy("backend")
     helper.copy("backend_data")
     helper.copy("powerlevel")
+    helper.copy("tag_commands")
+    helper.copy("tag_commands_prefix")
+    helper.copy("tag_commands_start_only")
 
 class Meetings(Plugin):
   async def start(self) -> None:
     self.config.load_and_update()
     self.backend = importlib.import_module(f'.backends.{self.config["backend"]}', package='meetings')
+    self.tags = self.config['tags']
+    prefix = self.config.get('tags_commandprefix', "\!")
+    start = "^" if self.config.get('tags_commandatstart', True) else ''
+    self.tags_regex = re.compile(f"{start}(.*){prefix}({'|'.join(TAG_ACTIONS.keys())})( .*)")
 
   async def check_pl(self,evt):
     pls = await self.client.get_state_event(evt.room_id, EventType.ROOM_POWER_LEVELS)
@@ -151,7 +158,7 @@ class Meetings(Plugin):
     if meeting:
       if not await self.check_pl(evt):
         await evt.respond("You do not have permission to end a meeting.")
-      else: 
+      else:
         meeting_id = self.meeting_id(evt.room_id)
         
         #  Notify the room
@@ -170,7 +177,7 @@ class Meetings(Plugin):
         dbq = """
                 DELETE FROM meetings WHERE room_id = $1
               """
-        await self.database.execute(dbq, evt.room_id)  
+        await self.database.execute(dbq, evt.room_id)
 
     else:
       await evt.respond("No meeting in progress")
@@ -205,26 +212,19 @@ class Meetings(Plugin):
 
   @event.on(EventType.ROOM_MESSAGE)
   async def log_message(self, evt):
-    if evt.content.msgtype in [MessageType.TEXT, MessageType.NOTICE]:
-      meeting = await self.meeting_in_progress(evt.room_id)
-      if meeting:
-        await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, meeting["topic"])
-
-  @command.passive("")
-  async def tag_actions(self, evt: MessageEvent, match: Tuple[str]) -> None:
+    if evt.content.msgtype not in [MessageType.TEXT, MessageType.NOTICE]:
+      return
+    
     meeting = await self.meeting_in_progress(evt.room_id)
-    if meeting:
+    if not meeting:
+      return
+    
+    await self.log_to_db(self.meeting_id(evt.room_id), evt.timestamp, evt.sender, evt.content.body, meeting["topic"])
 
-      # Mark an action item
-      if re.search("\^action", evt.content.body):
-        await self.log_tag("action", evt)
-        await evt.react("🚩")
-
-      # Mark an info item
-      if re.search("\^info", evt.content.body):
-        await self.log_tag("info", evt)
-        await evt.react("✏️️")
-      
+    match = re.findall(self.tags_regex, evt.content.body)
+    if match and len(match) == 1:
+      await self.log_tag(match[0][1], evt)
+      await evt.react(self.tags[match[0][1]])
 
   @classmethod
   def get_config_class(cls) -> Type[BaseProxyConfig]:
