@@ -6,6 +6,7 @@ from mautrix.client.state_store import StateStore
 from mautrix.types import (Event, StateEvent, EventID, UserID, FileInfo, MessageType, EventType,
                            MediaMessageEventContent, ReactionEvent, RedactionEvent)
 from mautrix.types.event.message import media_reply_fallback_body_map
+from mautrix.util import markdown
 from mautrix.util.async_db import UpgradeTable, Scheme
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 
@@ -34,9 +35,9 @@ class Meetings(Plugin):
     self.config.load_and_update()
     self.backend = importlib.import_module(f'.backends.{self.config["backend"]}', package='meetings')
     self.tags = self.config['tags']
-    prefix = self.config.get('tags_commandprefix', "\!")
+    self.prefix = self.config.get('tags_commandprefix', "\!")
     start = "^" if self.config.get('tags_commandatstart', True) else ''
-    self.tags_regex = re.compile(f"{start}(.*){prefix}({'|'.join(self.tags.keys())})( .*)")
+    self.tags_regex = re.compile(f"{start}(.*){self.prefix}({'|'.join(self.tags.keys())})( .*)")
 
   async def check_pl(self,evt):
     pls = await self.client.get_state_event(evt.room_id, EventType.ROOM_POWER_LEVELS)
@@ -131,7 +132,7 @@ class Meetings(Plugin):
   async def startmeeting(self, evt: MessageEvent, meetingname) -> None:
     meeting = await self.meeting_in_progress(evt.room_id)
     if not await self.check_pl(evt):
-      await evt.respond("You do not have permission to start a meeting.")
+      await evt.respond(f"Starting a meeting requires a powerlevel of at least {self.config['powerlevel']}")
     elif meeting:
       await evt.respond("Meeting already in progress")
     else:
@@ -159,13 +160,27 @@ class Meetings(Plugin):
       await evt.respond(f'Meeting started at {time_from_timestamp(evt.timestamp)} UTC')
       await evt.respond(f'The Meeting name is \'{meetingname}\'')
 
+      # provide some helpful hints
+      prefix = self.prefix.strip('\\')
+      tags_string = "\n".join([f"* `{prefix}{tag}`: {emoji}\n" for tag, emoji in self.tags.items()])
+      hints = (f"reminds you of the things that can do in the meeting:\n"
+               f"* `!meetingname <a new name>`: to rename the meeting\n"
+               f"* `!topic <a topic name>`: to change the topic of the meeting\n"
+               f"* `!endmeeting`: to, well, end the meeting\n"
+               f"\n"
+               f"There are also several handy tags that you can use to tag a "
+               f"message to highlight it in the minutes (and add an emoji reaction here):\n"
+               f"{tags_string}")
+
+      await self.client.send_text(evt.room_id, None, html=markdown.render(hints), msgtype=MessageType.EMOTE)
+
   @command.new(aliases=["em"])
   async def endmeeting(self, evt: MessageEvent) -> None:
     meeting = await self.meeting_in_progress(evt.room_id)
 
     if meeting:
       if not await self.check_pl(evt):
-        await evt.respond("You do not have permission to end a meeting.")
+        await evt.respond(f"Ending a meeting requires a powerlevel of at least {self.config['powerlevel']}")
       else:
         meeting_id = self.meeting_id(evt.room_id)
         
@@ -197,7 +212,7 @@ class Meetings(Plugin):
 
     if meeting:
       if not await self.check_pl(evt):
-        await evt.respond("You do not have permission to rename a meeting.")
+        await evt.respond(f"Renaming a meeting requires a powerlevel of at least {self.config['powerlevel']}")
       else:
         if name:
           await self.change_meetingname(name, evt)
@@ -211,7 +226,7 @@ class Meetings(Plugin):
 
     if meeting:
       if not await self.check_pl(evt):
-        await evt.respond("You do not have permission to set the topic.")
+        await evt.respond(f"Changing the topic requires a powerlevel of at least {self.config['powerlevel']}")
       else:
         if name:
           await self.log_tag("topic", evt)
