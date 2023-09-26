@@ -121,6 +121,20 @@ async def endmeeting(meetbot, event, meeting):
     )
     url = f"{config['logs_baseurl']}{slugified_room_alias}/{startdate}/"
 
+    template_vars = {
+        "items": items,
+        "room": room_alias,
+        "people_present": people_present,
+        "meeting_name": meeting["meeting_name"],
+    }
+
+    templates = [
+        ("text_log.j2", f"{filename}.log.txt", "Text Log"),
+        ("html_log.j2", f"{filename}.log.html", "HTML Log"),
+        ("text_minutes.j2", f"{filename}.txt", "Text Minutes"),
+        ("html_minutes.j2", f"{filename}.html", "HTML Minutes"),
+    ]
+
     # TODO: chairs aren't implemented in the main part of meetings yet, so just use the
     # user that started the meetings for now
     chairs = [items[0]["sender"]]
@@ -172,20 +186,6 @@ async def endmeeting(meetbot, event, meeting):
         sendfedoramessage(meetbot, message)
     except Exception as e:
         meetbot.log.error(e)
-
-    template_vars = {
-        "items": items,
-        "room": room_alias,
-        "people_present": people_present,
-        "meeting_name": meeting["meeting_name"],
-    }
-
-    templates = [
-        ("text_log.j2", f"{filename}.log.txt", "Text Log"),
-        ("html_log.j2", f"{filename}.log.html", "HTML Log"),
-        ("text_minutes.j2", f"{filename}.txt", "Text Minutes"),
-        ("html_minutes.j2", f"{filename}.html", "HTML Minutes"),
-    ]
 
     for template, file, label in templates:
         autoescape = True if file.endswith((".html", ".htm", ".xml")) else False
