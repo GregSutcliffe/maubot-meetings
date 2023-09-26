@@ -62,12 +62,15 @@ async def _get_fasname_from_mxid(meetbot, event, mxid):
         searchterm = f"matrix://{matrix_server}/{matrix_username}"
         baseurl = meetbot.config["backend_data"]["fedora"]["fasjson_url"]
         async with httpx.AsyncClient() as client:
-            response = await client.get(
-                baseurl + "/v1/search/users/",
-                auth=HTTPSPNEGOAuth(),
-                params={"ircnick__exact": searchterm},
-            )
-        meetbot.log.error(response)
+            try:
+                response = await client.get(
+                    baseurl + "/v1/search/users/",
+                    auth=HTTPSPNEGOAuth(),
+                    params={"ircnick__exact": searchterm},
+                )
+            except httpx.HTTPError as e:
+                meetbot.log.error(f"Error Getting information from FASJSON: {e}")
+                return mxid
         searchresult = response.json().get("result")
 
         if len(searchresult) > 1:
@@ -114,7 +117,7 @@ async def endmeeting(meetbot, event, meeting):
     # makes a slugified room alias e.g. `#fedora-meeting:fedora.im` 
     # becomes `fedora-meeting_matrix-fedora-im`
     slugified_room_alias = slugify(
-        room_alias, replacements=[[":", "_matrix-"]], regex_pattern=r"[^-a-z0-9_]+"
+        room_alias, replacements=[[":", "_matrix_"]], regex_pattern=r"[^-a-z0-9_]+"
     )
     url = f"{config['logs_baseurl']}{slugified_room_alias}/{startdate}/"
 
@@ -126,27 +129,10 @@ async def endmeeting(meetbot, event, meeting):
     # /meetbot_logs/web/meetbot/fedora-meeting-1_matrix-fedora-im/2023-09-01/
     path = os.path.join(config["logs_directory"], slugified_room_alias, startdate)
     if not os.access(path, os.F_OK):
-        os.makedirs(path)
-
-    template_vars = {
-        "items": items,
-        "room": room_alias,
-        "people_present": people_present,
-        "meeting_name": meeting["meeting_name"],
-    }
-
-    templates = [
-        ("text_log.j2", f"{filename}.log.txt", "Text Log"),
-        ("html_log.j2", f"{filename}.log.html", "HTML Log"),
-        ("text_minutes.j2", f"{filename}.txt", "Text Minutes"),
-        ("html_minutes.j2", f"{filename}.html", "HTML Minutes"),
-    ]
-
-    for template, file, label in templates:
-        autoescape = True if file.endswith((".html", ".htm", ".xml")) else False
-        rendered = render(meetbot, template, autoescape=autoescape, **template_vars)
-        writeToFile(path, file, rendered)
-        await event.respond(f"{label}: {url}{file}")
+        try:
+            os.makedirs(path)
+        except IOError as e:
+            meetbot.log.error(f"Creating Directories failed with error: {e}")
 
     # we build this up as a cache of {"@mxid:server.test": "fasname"} pairs, or if we can't find
     # a fas username, just use the mxid. I'm doing this seperately to reduce dupilcate calls to
@@ -182,6 +168,35 @@ async def endmeeting(meetbot, event, meeting):
         }
     )
     # TODO: Make this async
-    sendfedoramessage(meetbot, message)
+    try:
+        sendfedoramessage(meetbot, message)
+    except Exception as e:
+        meetbot.log.error(e)
+
+    template_vars = {
+        "items": items,
+        "room": room_alias,
+        "people_present": people_present,
+        "meeting_name": meeting["meeting_name"],
+    }
+
+    templates = [
+        ("text_log.j2", f"{filename}.log.txt", "Text Log"),
+        ("html_log.j2", f"{filename}.log.html", "HTML Log"),
+        ("text_minutes.j2", f"{filename}.txt", "Text Minutes"),
+        ("html_minutes.j2", f"{filename}.html", "HTML Minutes"),
+    ]
+
+    for template, file, label in templates:
+        autoescape = True if file.endswith((".html", ".htm", ".xml")) else False
+        rendered = render(meetbot, template, autoescape=autoescape, **template_vars)
+        try:
+            writeToFile(path, file, rendered)
+        except IOError as e:
+            await event.respond(f"Issue Saving {file}. Uploading here instead")
+            meetbot.log.error(f"Saving File failed with error: {e}")
+            await meetbot.upload_file(event, file, rendered)
+        else:    
+            await event.respond(f"{label}: {url}{file}")
 
     meetbot.log.info(f"Fedora: Meeting ended in {room_alias}")
