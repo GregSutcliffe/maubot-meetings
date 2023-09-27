@@ -11,5 +11,12 @@ tags:
   idea: "💭"
   halp: "🛟"
   link: "🔗"
-tags_commandprefix: \!
+
+# the prefix to use to signify a tag command (e.g. ^action or ^info)
+# this is used in a regex, so if it needs to be escaped, please do it here
+tags_commandprefix: \^
+
+# if True, the tag command needs to be at the start of the message, e.g
+# "^action some action" if False, will match anywhere in the line, e.g.
+# "<an_irc_user>: !action pants"
 tags_commandatstart: True
