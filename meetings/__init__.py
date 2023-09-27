@@ -25,9 +25,9 @@ class Config(BaseProxyConfig):
     helper.copy("backend")
     helper.copy("backend_data")
     helper.copy("powerlevel")
-    helper.copy("tag_commands")
-    helper.copy("tag_commands_prefix")
-    helper.copy("tag_commands_start_only")
+    helper.copy("tags")
+    helper.copy("tags_commandprefix")
+    helper.copy("tags_commandatstart")
 
 class Meetings(Plugin):
   async def start(self) -> None:
