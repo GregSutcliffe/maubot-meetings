@@ -23,21 +23,21 @@ from .util import time_from_timestamp, get_room_name
 
 class Config(BaseProxyConfig):
   def do_update(self, helper: ConfigUpdateHelper) -> None:
+    helper.copy("powerlevel")
     helper.copy("backend")
     helper.copy("backend_data")
-    helper.copy("powerlevel")
+    helper.copy("tags_command_at_start")
+    helper.copy("tags_command_prefix")
     helper.copy("tags")
-    helper.copy("tags_commandprefix")
-    helper.copy("tags_commandatstart")
 
 class Meetings(Plugin):
   async def start(self) -> None:
     self.config.load_and_update()
     self.backend = importlib.import_module(f'.backends.{self.config["backend"]}', package='meetings')
     self.tags = self.config['tags']
-    self.prefix = self.config.get('tags_commandprefix', "\!")
-    start = "^" if self.config.get('tags_commandatstart', True) else ''
-    self.tags_regex = re.compile(f"{start}(.*){self.prefix}({'|'.join(self.tags.keys())})( .*)")
+    self.prefix = self.config.get('tags_command_prefix', "^")
+    start = "(^)" if self.config.get('tags_command_at_start', True) else '(^.*)'
+    self.tags_regex = re.compile(f"{start}\{self.prefix}({'|'.join(self.tags.keys())})($| .*)")
 
   async def check_pl(self,evt):
     pls = await self.client.get_state_event(evt.room_id, EventType.ROOM_POWER_LEVELS)

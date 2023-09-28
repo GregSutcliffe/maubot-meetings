@@ -1,8 +1,21 @@
 # Min powerlevel to start/end meetings
 powerlevel: 50
+
 # Which backend to use
 backend: fedora
 backend_data: {}
+
+# Does the prefix need to occur at the start of the message?
+# - True:  needs to be at the start of the message, e.g "^action thing"
+# - False: match anywhere in the line, e.g. "<an_irc_user>: ^action thing"
+tags_command_at_start: True
+
+# the prefix to use to signify a tag e.g. "^info"
+# this will be escaped for you, but you may need quotes
+tags_command_prefix: '^'
+
+# Reaction emoji for various tags
+# This is at the end because Maubot's YAML parser eats comments after a list :/
 tags:
   action: "🚩"
   info: "✏️"
@@ -11,12 +24,3 @@ tags:
   idea: "💭"
   halp: "🛟"
   link: "🔗"
-
-# the prefix to use to signify a tag command (e.g. ^action or ^info)
-# this is used in a regex, so if it needs to be escaped, please do it here
-tags_commandprefix: \^
-
-# if True, the tag command needs to be at the start of the message, e.g
-# "^action some action" if False, will match anywhere in the line, e.g.
-# "<an_irc_user>: !action pants"
-tags_commandatstart: True
