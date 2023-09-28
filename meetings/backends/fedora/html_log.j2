@@ -27,7 +27,6 @@ body .cmdline  { font-weight: bold }
     <pre style="white-space: nowrap;">
     {% for line in items %}
         <a name="l-{{loop.index}}"></a>
-        <span class="tm">{{line['topic']}}</span>
         <span class="tm">{{line['timestamp']|formatdate}}</span>
         <span class="nk"> &lt;{{line['sender']}}&gt; </span> 
         {{line['message']}}
