@@ -1,6 +1,6 @@
 maubot: 0.4.0
 id: com.ansible.meetings
-version: 0.2.0
+version: 0.3.0
 license: GPL3
 modules:
   - meetings
