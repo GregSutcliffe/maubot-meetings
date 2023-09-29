@@ -172,7 +172,7 @@ async def endmeeting(meetbot, event, meeting):
             "end_time": time_from_timestamp(
                 event.timestamp, format="%Y-%m-%dT%H:%M:%S+1000"
             ),
-            "end_user": fasnames[event.sender],
+            "end_user": fasnames.get(event.sender, event.sender),
             "location": room_alias,
             "meeting_name": meeting["meeting_name"],
             "url": url,
