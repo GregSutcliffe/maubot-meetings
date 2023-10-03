@@ -1,13 +1,13 @@
 import os
 import re
 
+import httpx
 import jinja2
 from fedora_messaging import api as fm_api
 from fedora_messaging import exceptions as fm_exceptions
+from httpx_gssapi import HTTPSPNEGOAuth
 from meetbot_messages import MeetingCompleteV1, MeetingStartV1
 from slugify import slugify
-import httpx
-from httpx_gssapi import HTTPSPNEGOAuth
 
 from ...util import get_room_alias, time_from_timestamp
 
@@ -36,7 +36,7 @@ def render(meetbot, templatename, autoescape=True, **kwargs):
     j2env = jinja2.Environment(
         trim_blocks=True,
         lstrip_blocks=True,
-        autoescape=autoescape,
+        autoescape=autoescape,  # noqa: S701
     )
     j2env.filters["formatdate"] = formatdate
     j2env.filters["formattime"] = formattime
@@ -76,11 +76,9 @@ async def _get_fasname_from_mxid(meetbot, event, mxid):
         if len(searchresult) > 1:
             user = searchresult[0]["username"]
             await event.respond(
-                (
-                    f"Warning: MXID {mxid} is associated with multiple Fedora "
-                    f"Accounts ({[u['username'] for u in searchresult]}). Defaulting "
-                    f"to using {user} in Fedora Messaging messages"
-                )
+                f"Warning: MXID {mxid} is associated with multiple Fedora "
+                f"Accounts ({[u['username'] for u in searchresult]}). Defaulting "
+                f"to using {user} in Fedora Messaging messages"
             )
             return user
         elif len(searchresult) == 0:
@@ -94,9 +92,7 @@ async def startmeeting(meetbot, event, meeting):
     start_user = await _get_fasname_from_mxid(meetbot, event, event.sender)
     message = MeetingStartV1(
         body={
-            "start_time": time_from_timestamp(
-                event.timestamp, format="%Y-%m-%dT%H:%M:%S+1000"
-            ),
+            "start_time": time_from_timestamp(event.timestamp, format="%Y-%m-%dT%H:%M:%S+1000"),
             "start_user": start_user,
             "location": room_alias,
             "meeting_name": meeting["meeting_name"],
@@ -114,7 +110,7 @@ async def endmeeting(meetbot, event, meeting):
     starttime = time_from_timestamp(items[0]["timestamp"], format="%Y-%m-%d-%H.%M")
     startdate = time_from_timestamp(items[0]["timestamp"], format="%Y-%m-%d")
     filename = f"{slugify(meeting['meeting_name'])}.{starttime}"
-    # makes a slugified room alias e.g. `#fedora-meeting:fedora.im` 
+    # makes a slugified room alias e.g. `#fedora-meeting:fedora.im`
     # becomes `fedora-meeting_matrix-fedora-im`
     slugified_room_alias = slugify(
         room_alias, replacements=[[":", "_matrix_"]], regex_pattern=r"[^-a-z0-9_]+"
@@ -145,7 +141,7 @@ async def endmeeting(meetbot, event, meeting):
     if not os.access(path, os.F_OK):
         try:
             os.makedirs(path)
-        except IOError as e:
+        except OSError as e:
             meetbot.log.error(f"Creating Directories failed with error: {e}")
 
     # we build this up as a cache of {"@mxid:server.test": "fasname"} pairs, or if we can't find
@@ -169,16 +165,14 @@ async def endmeeting(meetbot, event, meeting):
                 items[0]["timestamp"], format="%Y-%m-%dT%H:%M:%S+1000"
             ),
             "start_user": fasnames[items[0]["sender"]],
-            "end_time": time_from_timestamp(
-                event.timestamp, format="%Y-%m-%dT%H:%M:%S+1000"
-            ),
+            "end_time": time_from_timestamp(event.timestamp, format="%Y-%m-%dT%H:%M:%S+1000"),
             "end_user": fasnames.get(event.sender, event.sender),
             "location": room_alias,
             "meeting_name": meeting["meeting_name"],
             "url": url,
             "attendees": attendees,
             "chairs": [fasnames[c] for c in chairs],
-            "logs": [{"log_type": l, "log_url": f"{url}{f}"} for t, f, l in templates],
+            "logs": [{"log_type": lt, "log_url": f"{url}{f}"} for t, f, lt in templates],
         }
     )
     # TODO: Make this async
@@ -192,11 +186,11 @@ async def endmeeting(meetbot, event, meeting):
         rendered = render(meetbot, template, autoescape=autoescape, **template_vars)
         try:
             writeToFile(path, file, rendered)
-        except IOError as e:
+        except OSError as e:
             await event.respond(f"Issue Saving {file}. Uploading here instead")
             meetbot.log.error(f"Saving File failed with error: {e}")
             await meetbot.upload_file(event, file, rendered)
-        else:    
+        else:
             await event.respond(f"{label}: {url}{file}")
 
     meetbot.log.info(f"Fedora: Meeting ended in {room_alias}")

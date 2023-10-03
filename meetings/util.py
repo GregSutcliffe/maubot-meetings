@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from mautrix.types import EventType
 from mautrix.errors import MNotFound
+from mautrix.types import EventType
+
 
 async def get_room_alias(client, room_id):
     try:
@@ -11,6 +12,7 @@ async def get_room_alias(client, room_id):
         # typically if a room is a direct message, it wont have a canonical alias
         return None
 
+
 async def get_room_name(client, room_id):
     try:
         existing_event = await client.get_state_event(room_id, EventType.ROOM_NAME)
@@ -19,5 +21,6 @@ async def get_room_name(client, room_id):
         # typically if a room is a direct message, it wont have a canonical alias
         return None
 
+
 def time_from_timestamp(timestamp, format="%Y-%m-%d %H:%M:%S"):
-    return datetime.fromtimestamp(int(timestamp)/1e3).strftime(format)
+    return datetime.fromtimestamp(int(timestamp) / 1e3).strftime(format)
