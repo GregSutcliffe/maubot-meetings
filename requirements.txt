@@ -1,0 +1,12 @@
+asyncpg
+maubot
+mautrix
+pytz
+jinja2
+
+# Fedora Backend Deps
+httpx
+httpx_gssapi
+slugify
+fedora-messaging
+meetbot_messages

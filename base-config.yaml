@@ -2,7 +2,7 @@
 powerlevel: 50
 
 # Which backend to use
-backend: fedora
+backend:
 backend_data: {}
 
 # Does the prefix need to occur at the start of the message?
