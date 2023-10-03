@@ -1,20 +1,17 @@
-from typing import Type
+import importlib
+import re
 from datetime import datetime
 
-from mautrix.types import FileInfo, MessageType, EventType, MediaMessageEventContent
+from maubot import MessageEvent, Plugin
+from maubot.handlers import command, event
+from mautrix.types import EventType, FileInfo, MediaMessageEventContent, MessageType
 from mautrix.util import markdown
 from mautrix.util.async_db import UpgradeTable
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 
-from maubot import Plugin, MessageEvent
-from maubot.handlers import command, event
-
-import re
-import importlib
-
 # Setup database
 from .db import upgrade_table
-from .util import time_from_timestamp, get_room_name
+from .util import get_room_name, time_from_timestamp
 
 
 class Config(BaseProxyConfig):
@@ -30,15 +27,16 @@ class Config(BaseProxyConfig):
 class Meetings(Plugin):
     async def start(self) -> None:
         self.config.load_and_update()
-        self.backend = importlib.import_module(
-            f'.backends.{self.config["backend"]}', package="meetings"
-        )
+        if self.config.get("backend", None):
+            self.backend = importlib.import_module(
+                f'.backends.{self.config["backend"]}', package="meetings"
+            )
+        else:
+            self.backend = None
         self.tags = self.config["tags"]
         self.prefix = self.config.get("tags_command_prefix", "^")
         start = "(^)" if self.config.get("tags_command_at_start", True) else "(^.*)"
-        self.tags_regex = re.compile(
-            f"{start}\{self.prefix}({'|'.join(self.tags.keys())})($| .*)"
-        )  # noqa
+        self.tags_regex = re.compile(f"{start}\\{self.prefix}({'|'.join(self.tags.keys())})($| .*)")
 
     async def check_pl(self, evt):
         pls = await self.client.get_state_event(evt.room_id, EventType.ROOM_POWER_LEVELS)
@@ -173,7 +171,8 @@ class Meetings(Plugin):
             )
 
             # Do backend-specific startmeeting things
-            await self.backend.startmeeting(self, evt, meeting)
+            if self.backend:
+                await self.backend.startmeeting(self, evt, meeting)
 
             # Notify the room
             await evt.respond(f"Meeting started at {time_from_timestamp(evt.timestamp)} UTC")
@@ -213,7 +212,8 @@ class Meetings(Plugin):
                 meeting_id = self.meeting_id(evt.room_id)
 
                 # Do backend-specific endmeeting things
-                await self.backend.endmeeting(self, evt, meeting)
+                if self.config["backend"]:
+                    await self.backend.endmeeting(self, evt, meeting)
 
                 #  Notify the room
                 await evt.respond(f"Meeting ended at {time_from_timestamp(evt.timestamp)} UTC")
@@ -289,7 +289,7 @@ class Meetings(Plugin):
             await evt.react(self.tags[match[0][1]])
 
     @classmethod
-    def get_config_class(cls) -> Type[BaseProxyConfig]:
+    def get_config_class(cls) -> type[BaseProxyConfig]:
         return Config
 
     @classmethod
