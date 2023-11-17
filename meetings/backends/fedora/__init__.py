@@ -90,16 +90,17 @@ async def _get_fasname_from_mxid(meetbot, event, mxid):
 async def startmeeting(meetbot, event, meeting):
     room_alias = await get_room_alias(meetbot.client, event.room_id)
     start_user = await _get_fasname_from_mxid(meetbot, event, event.sender)
-    message = MeetingStartV1(
-        body={
-            "start_time": time_from_timestamp(event.timestamp, format="%Y-%m-%dT%H:%M:%S+1000"),
-            "start_user": start_user,
-            "location": room_alias,
-            "meeting_name": meeting["meeting_name"],
-        }
-    )
-    sendfedoramessage(meetbot, message)
-    meetbot.log.info(f"Fedora: Meeting started in {room_alias}")
+    if meetbot.config["backend_data"]["fedora"].get("send_fedoramessages", True):
+        message = MeetingStartV1(
+            body={
+                "start_time": time_from_timestamp(event.timestamp, format="%Y-%m-%dT%H:%M:%S+1000"),
+                "start_user": start_user,
+                "location": room_alias,
+                "meeting_name": meeting["meeting_name"],
+            }
+        )
+        sendfedoramessage(meetbot, message)
+        meetbot.log.info(f"Fedora: Meeting started in {room_alias}")
 
 
 async def endmeeting(meetbot, event, meeting):
@@ -159,27 +160,28 @@ async def endmeeting(meetbot, event, meeting):
         if mxid not in fasnames.keys():
             fasnames[mxid] = await _get_fasname_from_mxid(meetbot, event, mxid)
 
-    message = MeetingCompleteV1(
-        body={
-            "start_time": time_from_timestamp(
-                items[0]["timestamp"], format="%Y-%m-%dT%H:%M:%S+1000"
-            ),
-            "start_user": fasnames[items[0]["sender"]],
-            "end_time": time_from_timestamp(event.timestamp, format="%Y-%m-%dT%H:%M:%S+1000"),
-            "end_user": fasnames.get(event.sender, event.sender),
-            "location": room_alias,
-            "meeting_name": meeting["meeting_name"],
-            "url": url,
-            "attendees": attendees,
-            "chairs": [fasnames[c] for c in chairs],
-            "logs": [{"log_type": lt, "log_url": f"{url}{f}"} for t, f, lt in templates],
-        }
-    )
-    # TODO: Make this async
-    try:
-        sendfedoramessage(meetbot, message)
-    except Exception as e:
-        meetbot.log.error(e)
+    if meetbot.config["backend_data"]["fedora"].get("send_fedoramessages", True):
+        message = MeetingCompleteV1(
+            body={
+                "start_time": time_from_timestamp(
+                    items[0]["timestamp"], format="%Y-%m-%dT%H:%M:%S+1000"
+                ),
+                "start_user": fasnames[items[0]["sender"]],
+                "end_time": time_from_timestamp(event.timestamp, format="%Y-%m-%dT%H:%M:%S+1000"),
+                "end_user": fasnames.get(event.sender, event.sender),
+                "location": room_alias,
+                "meeting_name": meeting["meeting_name"],
+                "url": url,
+                "attendees": attendees,
+                "chairs": [fasnames[c] for c in chairs],
+                "logs": [{"log_type": lt, "log_url": f"{url}{f}"} for t, f, lt in templates],
+            }
+        )
+        # TODO: Make this async
+        try:
+            sendfedoramessage(meetbot, message)
+        except Exception as e:
+            meetbot.log.error(e)
 
     for template, file, label in templates:
         autoescape = True if file.endswith((".html", ".htm", ".xml")) else False
