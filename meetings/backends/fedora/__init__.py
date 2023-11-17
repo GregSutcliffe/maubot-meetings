@@ -31,7 +31,7 @@ def render(meetbot, templatename, autoescape=True, **kwargs):
         return time_from_timestamp(int(timestamp), format="%H:%M:%S")
 
     def removecommand(line, command=""):
-        return line.removeprefix(f"^{command}").strip()
+        return line.removeprefix(f"{meetbot.config['tags_command_prefix']}{command}").strip()
 
     j2env = jinja2.Environment(
         trim_blocks=True,
