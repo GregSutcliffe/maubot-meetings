@@ -1,30 +1,38 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
+<!DOCTYPE html>
+<html lang="en">
     <head>
-    <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
-    <title>{{room}} log</title>
-<style type="text/css">
-/* For the .log.html */
-pre { /*line-height: 125%;*/
-      white-space: nowrap; }
-body { background: #f0f0f0; }
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>{{room}} log</title>
+        <style type="text/css">
+            .time  { color: #007020;}
+            .nick  { color: #062873; font-weight: bold;}
+            .topic     { color: #007020; font-weight: bold;}
+            .tag{color: #ff00ff; font-weight:bold}
+            .startmeeting, .endmeeting, .meetingname{color: #0000ff; font-weight:bold}
 
-body .tm  { color: #007020 }                      /* time */
-body .nk  { color: #062873; font-weight: bold }   /* nick, regular */
-body .topic     { color: #007020; font-weight: bold }
-
-</style>
-</head>
-
-<body>
-    <pre style="white-space: nowrap;">
-    {% for line in items %}
-        <a name="l-{{loop.index}}"></a>
-        <span class="tm">{{line['timestamp']|formatdate}}</span>
-        <span class="nk"> &lt;{{line['sender']}}&gt; </span> 
-        <span class="{{line['tag']}}">{{line['message']}}</span>
-        <br/>
-    {% endfor %}
-    </pre>
-</body>
+            .mono {font-family:monospace;}
+            .d-table {display:table;}
+            .d-table-row {display:table-row;}
+            .d-table-cell {display: table-cell;}
+            .max {min-width: 100%;}
+            .shrink {min-width:1%; white-space:nowrap;}
+            .stretch {min-width: 99%;}
+            .prewrap {white-space: pre-wrap;}
+            .pe-1{padding-right:1em;}
+            .text-right{text-align:right;}
+        </style>
+    </head>
+    <body>
+        <div class="d-table max mono">
+        {% for line in items %}
+            <div class="d-table-row" id="l-{{loop.index}}">
+                <div class="d-table-cell nick shrink text-right pe-1"> &lt;{{line['sender']}}&gt; </div>
+                <div class="d-table-cell time shrink pe-1">{{line['timestamp']|formattime}}</div>
+                <div class="d-table-cell stretch prewrap {{line['tag']+" tag" if line['tag']}} {{line['message']|getcommand}}">{{line['message']}}</div>
+            </div>
+        {% endfor %}
+        </div>
+    </body>
 </html>
