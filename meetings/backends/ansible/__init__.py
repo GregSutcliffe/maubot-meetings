@@ -95,13 +95,11 @@ async def post_to_discourse(config, raw_post, title, logger):
     payload = {"title": title, "raw": raw_post, "category": config["category_id"]}
 
     res = requests.post(url, headers=headers, data=payload)  # noqa: S113
-    r = json.loads(res.content)
     logger.info(f"Discourse POST: {res.status_code}")
     if res.status_code == 200:
         r = json.loads(res.content)
         return r["topic_id"]
-    else:
-        return ""
+    return ""
 
 
 # required backend methods
