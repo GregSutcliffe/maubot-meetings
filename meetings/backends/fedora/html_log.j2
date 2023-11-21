@@ -5,6 +5,8 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
         <title>{{room}} log</title>
+    </head>
+    <body>
         <style type="text/css">
             .time  { color: #007020;}
             .nick  { color: #062873; font-weight: bold;}
@@ -18,19 +20,18 @@
             .d-table-cell {display: table-cell;}
             .max {min-width: 100%;}
             .shrink {min-width:1%; white-space:nowrap;}
-            .stretch {min-width: 99%;}
+            .stretch {width: 100%;}
             .prewrap {white-space: pre-wrap;}
             .pe-1{padding-right:1em;}
+            .ps-1{padding-left:1em;}
             .text-right{text-align:right;}
         </style>
-    </head>
-    <body>
         <div class="d-table max mono">
         {% for line in items %}
             <div class="d-table-row" id="l-{{loop.index}}">
                 <div class="d-table-cell nick shrink text-right pe-1"> &lt;{{line['sender']}}&gt; </div>
                 <div class="d-table-cell time shrink pe-1">{{line['timestamp']|formattime}}</div>
-                <div class="d-table-cell stretch prewrap {{line['tag']+" tag" if line['tag']}} {{line['message']|getcommand}}">{{line['message']}}</div>
+                <div class="d-table-cell stretch prewrap ps-1 {{line['tag']+" tag" if line['tag']}} {{line['message']|getcommand}}">{{line['message']}}</div>
             </div>
         {% endfor %}
         </div>
