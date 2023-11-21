@@ -33,6 +33,13 @@ def render(meetbot, templatename, autoescape=True, **kwargs):
     def removecommand(line, command=""):
         return line.removeprefix(f"{meetbot.config['tags_command_prefix']}{command}").strip()
 
+    def getcommand(line):
+        commands = ["startmeeting", "endmeeting", "topic", "meetingname"]
+        for c in commands:
+            if line.startswith(f"!{c}"):
+                return c
+        return ""
+
     j2env = jinja2.Environment(
         trim_blocks=True,
         lstrip_blocks=True,
@@ -41,6 +48,7 @@ def render(meetbot, templatename, autoescape=True, **kwargs):
     j2env.filters["formatdate"] = formatdate
     j2env.filters["formattime"] = formattime
     j2env.filters["removecommand"] = removecommand
+    j2env.filters["getcommand"] = getcommand
 
     template = meetbot.loader.sync_read_file(f"meetings/backends/fedora/{templatename}")
     return j2env.from_string(template.decode()).render(**kwargs)
