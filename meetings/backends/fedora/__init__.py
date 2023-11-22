@@ -114,6 +114,8 @@ async def startmeeting(meetbot, event, meeting):
 async def endmeeting(meetbot, event, meeting):
     config = meetbot.config["backend_data"]["fedora"]
     room_alias = await get_room_alias(meetbot.client, event.room_id)
+    if not room_alias:
+        room_alias = event.room_id
     items = await meetbot.get_items(meeting["meeting_id"])
     people_present = await meetbot.get_people_present(meeting["meeting_id"])
     starttime = time_from_timestamp(items[0]["timestamp"], format="%Y-%m-%d-%H.%M")
