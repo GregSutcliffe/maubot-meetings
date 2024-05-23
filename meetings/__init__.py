@@ -3,7 +3,8 @@ import re
 from datetime import datetime
 
 from maubot import MessageEvent, Plugin
-from maubot.handlers import command, event
+from maubot.handlers import event
+from mautrix.errors.request import MatrixUnknownRequestError
 from mautrix.types import EventType, FileInfo, MediaMessageEventContent, MessageType
 from mautrix.util import markdown
 from mautrix.util.async_db import UpgradeTable
@@ -12,6 +13,9 @@ from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 # Setup database
 from .db import upgrade_table
 from .util import get_room_name, time_from_timestamp
+
+COMMAND_RE = re.compile(r"^!(\S+)(?:\s+|$)(.*)")
+TOPIC_COMMAND_RE = re.compile(r"^!(topic)(?:\s+|$)(.*)")
 
 
 class Config(BaseProxyConfig):
@@ -77,13 +81,23 @@ class Meetings(Plugin):
         rows = await self.database.fetch(dbq, meeting_id)
         return rows
 
-    async def log_tag(self, tag, evt: MessageEvent) -> None:
+    async def react(self, evt, emoji):
+        try:
+            await evt.react(emoji)
+        except MatrixUnknownRequestError as e:
+            if e.errcode == "M_DUPLICATE_ANNOTATION":
+                pass
+            else:
+                raise e
+
+    async def log_tag(self, tag, line, evt: MessageEvent) -> None:
         meeting = self.meeting_id(evt.room_id)
         timestamp = evt.timestamp
-        dbq = """
-            UPDATE meeting_logs SET tag = $3 WHERE meeting_id = $1 AND timestamp = $2
-          """
-        await self.database.execute(dbq, meeting, str(timestamp), tag)
+        dbq = (
+            "UPDATE meeting_logs SET tag = $3 WHERE meeting_id = $1 AND "
+            "timestamp = $2 AND message = $4"
+        )
+        await self.database.execute(dbq, meeting, str(timestamp), tag, line)
 
     async def change_topic(self, topic, evt: MessageEvent) -> None:
         dbq = """
@@ -132,8 +146,6 @@ class Meetings(Plugin):
     def meeting_id(self, room_id):
         return f"{room_id}-{datetime.today().strftime('%Y-%m-%d')}"
 
-    @command.new(aliases=["sm"])
-    @command.argument("meetingname", pass_raw=True)
     async def startmeeting(self, evt: MessageEvent, meetingname) -> None:
         meeting = await self.meeting_in_progress(evt.room_id)
         if not await self.check_pl(evt):
@@ -198,7 +210,6 @@ class Meetings(Plugin):
                 evt.room_id, None, html=markdown.render(hints), msgtype=MessageType.EMOTE
             )
 
-    @command.new(aliases=["em"])
     async def endmeeting(self, evt: MessageEvent) -> None:
         meeting = await self.meeting_in_progress(evt.room_id)
 
@@ -233,8 +244,6 @@ class Meetings(Plugin):
         else:
             await evt.respond("No meeting in progress")
 
-    @command.new("meetingname", aliases=["mn"], help="Rename the meeting")
-    @command.argument("name", pass_raw=True, required=True)
     async def rename_meeting(self, evt: MessageEvent, name: str = "") -> None:
         meeting = await self.meeting_in_progress(evt.room_id)
 
@@ -247,11 +256,9 @@ class Meetings(Plugin):
             else:
                 if name:
                     await self.change_meetingname(name, evt)
-                    await evt.react("✅")
+                    await evt.respond(f"The Meeting Name is now {name}")
 
-    @command.new("topic", aliases=["t"], help="Set the next topic")
-    @command.argument("name", pass_raw=True, required=True)
-    async def handle_topic(self, evt: MessageEvent, name: str = "") -> None:
+    async def handle_topic(self, evt: MessageEvent, name, line) -> None:
         meeting = await self.meeting_in_progress(evt.room_id)
 
         if meeting:
@@ -262,9 +269,9 @@ class Meetings(Plugin):
                 )
             else:
                 if name:
-                    await self.log_tag("topic", evt)
+                    await self.log_tag("topic", line, evt)
                     await self.change_topic(name, evt)
-                    await evt.react("✅")
+                    await evt.respond(f"The Meeting Topic is now {name}")
 
     @event.on(EventType.ROOM_MESSAGE)
     async def log_message(self, evt):
@@ -272,21 +279,33 @@ class Meetings(Plugin):
             return
 
         meeting = await self.meeting_in_progress(evt.room_id)
-        if not meeting:
-            return
 
-        await self.log_to_db(
-            self.meeting_id(evt.room_id),
-            evt.timestamp,
-            evt.sender,
-            evt.content.body,
-            meeting["topic"],
-        )
+        for line in evt.content.body.splitlines():
+            if meeting:
+                await self.log_to_db(
+                    self.meeting_id(evt.room_id),
+                    evt.timestamp,
+                    evt.sender,
+                    line,
+                    meeting["topic"],
+                )
 
-        match = re.findall(self.tags_regex, evt.content.body)
-        if match and len(match) == 1:
-            await self.log_tag(match[0][1], evt)
-            await evt.react(self.tags[match[0][1]])
+                tagsmatch = re.findall(self.tags_regex, line)
+                if tagsmatch and len(tagsmatch) == 1:
+                    await self.log_tag(tagsmatch[0][1], line, evt)
+                    await self.react(evt, self.tags[tagsmatch[0][1]])
+
+            commandsmatch = COMMAND_RE.search(line)
+            if commandsmatch:
+                command, argument = commandsmatch.groups()
+                if command in ["topic", "t"]:
+                    await self.handle_topic(evt, argument, line)
+                elif command in ["meetingname", "mn"]:
+                    await self.rename_meeting(evt, argument)
+                elif command in ["startmeeting", "sm"]:
+                    await self.startmeeting(evt, argument)
+                elif command in ["endmeeting", "em"]:
+                    await self.endmeeting(evt)
 
     @classmethod
     def get_config_class(cls) -> type[BaseProxyConfig]:
