@@ -271,7 +271,9 @@ class Meetings(Plugin):
                 if name:
                     await self.log_tag("topic", line, evt)
                     await self.change_topic(name, evt)
-                    await evt.respond(f"The Meeting Topic is now {name}")
+                    await self.client.send_text(
+                        evt.room_id, f"The Meeting Topic is now {name}", msgtype=MessageType.EMOTE
+                    )
 
     @event.on(EventType.ROOM_MESSAGE)
     async def log_message(self, evt):
@@ -279,8 +281,12 @@ class Meetings(Plugin):
             return
 
         meeting = await self.meeting_in_progress(evt.room_id)
+        lines = evt.content.body.splitlines()
 
-        for line in evt.content.body.splitlines():
+        if len(lines) > 1 and lines[0].startswith("!startmeeting"):
+            await evt.respond("Sorry, `!startmeeting` must be called by itself")
+            return
+        for line in lines:
             if meeting:
                 await self.log_to_db(
                     self.meeting_id(evt.room_id),
@@ -293,6 +299,14 @@ class Meetings(Plugin):
                 tagsmatch = re.findall(self.tags_regex, line)
                 if tagsmatch and len(tagsmatch) == 1:
                     await self.log_tag(tagsmatch[0][1], line, evt)
+                    await self.client.send_text(
+                        evt.room_id,
+                        (
+                            f"{self.tags[tagsmatch[0][1]]}{tagsmatch[0][1].upper()}:"
+                            f"{tagsmatch[0][2]}"
+                        ),
+                        msgtype=MessageType.EMOTE,
+                    )
                     await self.react(evt, self.tags[tagsmatch[0][1]])
 
             commandsmatch = COMMAND_RE.search(line)
