@@ -99,18 +99,17 @@ class Meetings(Plugin):
         )
         await self.database.execute(dbq, meeting, str(timestamp), tag, line)
 
-    async def change_topic(self, topic, evt: MessageEvent) -> None:
+    async def change_topic(self, topic, line, evt: MessageEvent) -> None:
         dbq = """
             UPDATE meetings SET topic = $3 WHERE meeting_id = $1 AND room_id = $2
           """
         await self.database.execute(dbq, self.meeting_id(evt.room_id), evt.room_id, topic)
 
         # also update the log for the '!topic' command to be the topic it commanded to be
-        dbq = """
-            UPDATE meeting_logs SET topic = $3 WHERE meeting_id = $1 AND timestamp = $2
-          """
+        dbq = ("UPDATE meeting_logs SET topic = $3 WHERE meeting_id = $1 "
+               "AND timestamp = $2 AND message = $4")
         timestamp = evt.timestamp
-        await self.database.execute(dbq, self.meeting_id(evt.room_id), str(timestamp), topic)
+        await self.database.execute(dbq, self.meeting_id(evt.room_id), str(timestamp), topic, line)
 
     async def change_meetingname(self, meetingname, evt: MessageEvent) -> None:
         dbq = """
@@ -270,7 +269,7 @@ class Meetings(Plugin):
             else:
                 if name:
                     await self.log_tag("topic", line, evt)
-                    await self.change_topic(name, evt)
+                    await self.change_topic(name, line, evt)
                     await self.client.send_text(
                         evt.room_id, f"The Meeting Topic is now {name}", msgtype=MessageType.EMOTE
                     )
@@ -280,13 +279,13 @@ class Meetings(Plugin):
         if evt.content.msgtype not in [MessageType.TEXT, MessageType.NOTICE]:
             return
 
-        meeting = await self.meeting_in_progress(evt.room_id)
         lines = evt.content.body.splitlines()
 
         if len(lines) > 1 and lines[0].startswith("!startmeeting"):
             await evt.respond("Sorry, `!startmeeting` must be called by itself")
             return
         for line in lines:
+            meeting = await self.meeting_in_progress(evt.room_id)
             if meeting:
                 await self.log_to_db(
                     self.meeting_id(evt.room_id),
@@ -298,6 +297,7 @@ class Meetings(Plugin):
 
                 tagsmatch = re.findall(self.tags_regex, line)
                 if tagsmatch and len(tagsmatch) == 1:
+                    self.log.error(f"{tagsmatch[0][1]} {line}")
                     await self.log_tag(tagsmatch[0][1], line, evt)
                     await self.client.send_text(
                         evt.room_id,
