@@ -2,8 +2,13 @@
 powerlevel: 50
 
 # Which backend to use
-backend:
-backend_data: {}
+backend: ansible
+backend_data:
+  ansible:
+    discourse_user: meetbot
+    discourse_key: key_goes_here
+    discourse_url: https://example.com
+    category_id: 1
 
 # Does the prefix need to occur at the start of the message?
 # - True:  needs to be at the start of the message, e.g "^action thing"
