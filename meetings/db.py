@@ -29,3 +29,8 @@ async def upgrade_v2(conn: Connection) -> None:
 @upgrade_table.register(description="add meeting_name")
 async def upgrade_v3(conn: Connection) -> None:
     await conn.execute("ALTER TABLE meetings ADD COLUMN meeting_name TEXT NOT NULL")
+
+
+@upgrade_table.register(description="add line_num")
+async def upgrade_v4(conn: Connection) -> None:
+    await conn.execute("ALTER TABLE meeting_logs ADD COLUMN line_num integer NOT NULL")
