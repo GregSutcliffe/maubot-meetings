@@ -58,13 +58,14 @@ class Meetings(Plugin):
     # Helper: Get logs from the db
     async def get_items(self, meeting_id, regex=False):
         if regex:
-            dbq = """
-              SELECT * FROM meeting_logs WHERE meeting_id = $1 AND tag LIKE $2 ORDER BY timestamp
-            """
+            dbq = (
+                "SELECT * FROM meeting_logs WHERE meeting_id = $1 AND tag LIKE $2 "
+                "ORDER BY timestamp, sender, line_num"
+            )
             rows = await self.database.fetch(dbq, meeting_id, regex)
         else:
             dbq = """
-              SELECT * FROM meeting_logs WHERE meeting_id = $1 ORDER BY timestamp
+              SELECT * FROM meeting_logs WHERE meeting_id = $1 ORDER BY timestamp, sender, line_num
             """
             rows = await self.database.fetch(dbq, meeting_id)
         return rows
@@ -117,13 +118,13 @@ class Meetings(Plugin):
           """
         await self.database.execute(dbq, self.meeting_id(evt.room_id), evt.room_id, meetingname)
 
-    async def log_to_db(self, meeting, timestamp, sender, message, topic):
+    async def log_to_db(self, meeting, timestamp, sender, message, topic, line_num=0):
         # Log the item to the db
         dbq = (
-            "INSERT INTO meeting_logs (meeting_id, timestamp, sender, message, topic) "
-            "VALUES ($1, $2, $3, $4, $5)"
+            "INSERT INTO meeting_logs (meeting_id, timestamp, sender, message, topic, line_num) "
+            "VALUES ($1, $2, $3, $4, $5, $6)"
         )
-        await self.database.execute(dbq, meeting, str(timestamp), sender, message, topic)
+        await self.database.execute(dbq, meeting, str(timestamp), sender, message, topic, line_num)
 
     # Helper: upload a file
     async def upload_file(self, evt, filename, file_contents):
@@ -284,7 +285,7 @@ class Meetings(Plugin):
         if len(lines) > 1 and lines[0].startswith("!startmeeting"):
             await evt.respond("Sorry, `!startmeeting` must be called by itself")
             return
-        for line in lines:
+        for line_num, line in enumerate(lines):
             meeting = await self.meeting_in_progress(evt.room_id)
             if meeting:
                 await self.log_to_db(
@@ -293,6 +294,7 @@ class Meetings(Plugin):
                     evt.sender,
                     line,
                     meeting["topic"],
+                    line_num=line_num,
                 )
 
                 tagsmatch = re.findall(self.tags_regex, line)
