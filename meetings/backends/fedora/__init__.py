@@ -3,6 +3,7 @@ import re
 
 import httpx
 import jinja2
+import json
 from fedora_messaging import api as fm_api
 from fedora_messaging import exceptions as fm_exceptions
 from httpx_gssapi import HTTPSPNEGOAuth
@@ -79,7 +80,11 @@ async def _get_fasname_from_mxid(meetbot, event, mxid):
             except httpx.HTTPError as e:
                 meetbot.log.error(f"Error Getting information from FASJSON: {e}")
                 return mxid
-        searchresult = response.json().get("result")
+        try:
+            searchresult = response.json().get("result")
+        except json.decoder.JSONDecodeError as e:
+            meetbot.log.error(f"Error parsing FASJSON response: {e}")
+            return mxid
 
         if len(searchresult) > 1:
             user = searchresult[0]["username"]
