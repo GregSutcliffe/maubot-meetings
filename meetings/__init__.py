@@ -106,8 +106,10 @@ class Meetings(Plugin):
         await self.database.execute(dbq, self.meeting_id(evt.room_id), evt.room_id, topic)
 
         # also update the log for the '!topic' command to be the topic it commanded to be
-        dbq = ("UPDATE meeting_logs SET topic = $3 WHERE meeting_id = $1 "
-               "AND timestamp = $2 AND message = $4")
+        dbq = (
+            "UPDATE meeting_logs SET topic = $3 WHERE meeting_id = $1 "
+            "AND timestamp = $2 AND message = $4"
+        )
         timestamp = evt.timestamp
         await self.database.execute(dbq, self.meeting_id(evt.room_id), str(timestamp), topic, line)
 
