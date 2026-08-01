@@ -1,9 +1,21 @@
+# Python bytecode and packaging
+__pycache__/
+*.egg-info/
+
+# Test and coverage output (pytest, coverage, tox)
+.coverage
+coverage.xml
+.pytest_cache/
+.tox/
+
+# Linter cache (ruff)
+.ruff_cache/
+
+# Local working files (planning docs from Claude Code sessions)
+docs/superpowers/
+
+# R — not used in this project; likely inherited from a template
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
-
-__pycache__
-.coverage
-coverage.xml
-.tox
