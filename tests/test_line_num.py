@@ -1,6 +1,3 @@
-import pytest
-
-
 async def test_line_num_assignment(bot, plugin, db):
     # Test that line_num is assigned correctly for single-line and multi-line messages
     await bot.send("!startmeeting")
