@@ -24,17 +24,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Get site-packages path
-        id: site-packages
-        run: echo "path=$(python -c 'import site; print(site.getsitepackages()[0])')" >> "$GITHUB_OUTPUT"
+#      - name: Get site-packages path
+#        id: site-packages
+#        run: echo "path=$(python -c 'import site; print(site.getsitepackages()[0])')" >> "$GITHUB_OUTPUT"
 
-      - name: Cache installed packages
-        uses: actions/cache@v5
-        with:
-          path: ${{ steps.site-packages.outputs.path }}
-          key: ${{ runner.os }}-py${{ matrix.python-version }}-pip-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-py${{ matrix.python-version }}-pip-
+#      - name: Cache installed packages
+#        uses: actions/cache@v5
+#        with:
+#          path: ${{ steps.site-packages.outputs.path }}
+#          key: ${{ runner.os }}-py${{ matrix.python-version }}-pip-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+#          restore-keys: |
+#            ${{ runner.os }}-py${{ matrix.python-version }}-pip-
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libkrb5-dev
@@ -59,17 +59,17 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Get site-packages path
-        id: site-packages
-        run: echo "path=$(python -c 'import site; print(site.getsitepackages()[0])')" >> "$GITHUB_OUTPUT"
-
-      - name: Cache installed packages
-        uses: actions/cache@v5
-        with:
-          path: ${{ steps.site-packages.outputs.path }}
-          key: ${{ runner.os }}-py3.11-fmt-${{ hashFiles('requirements-dev.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-py3.11-fmt-
+#      - name: Get site-packages path
+#        id: site-packages
+#        run: echo "path=$(python -c 'import site; print(site.getsitepackages()[0])')" >> "$GITHUB_OUTPUT"
+#
+#      - name: Cache installed packages
+#        uses: actions/cache@v5
+#        with:
+#          path: ${{ steps.site-packages.outputs.path }}
+#          key: ${{ runner.os }}-py3.11-fmt-${{ hashFiles('requirements-dev.txt') }}
+#          restore-keys: |
+#            ${{ runner.os }}-py3.11-fmt-
 
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
@@ -89,17 +89,17 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Get site-packages path
-        id: site-packages
-        run: echo "path=$(python -c 'import site; print(site.getsitepackages()[0])')" >> "$GITHUB_OUTPUT"
-
-      - name: Cache installed packages
-        uses: actions/cache@v5
-        with:
-          path: ${{ steps.site-packages.outputs.path }}
-          key: ${{ runner.os }}-py3.11-lint-${{ hashFiles('requirements-dev.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-py3.11-lint-
+#      - name: Get site-packages path
+#        id: site-packages
+#        run: echo "path=$(python -c 'import site; print(site.getsitepackages()[0])')" >> "$GITHUB_OUTPUT"
+#
+#      - name: Cache installed packages
+#        uses: actions/cache@v5
+#        with:
+#          path: ${{ steps.site-packages.outputs.path }}
+#          key: ${{ runner.os }}-py3.11-lint-${{ hashFiles('requirements-dev.txt') }}
+#          restore-keys: |
+#            ${{ runner.os }}-py3.11-lint-
 
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
