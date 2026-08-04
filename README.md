@@ -20,16 +20,17 @@ action if found. This includes things like
 - ^action
 - ^link 
 
-And so on - the full list of tags (and the reaction emoji) is in the config file.
+And so on - the full list of tags (and the reaction emoji) is in the config
+file. Multiline messages should be stored correctly.
 
 When "!endmeeting" is called, the bot will pass the control to the backend
 plugin (currently either `ansible` or `fedora`). This will determine what is
 done with the logs:
 
 - Ansible posts the logs to https://forum.ansible.com
-- Fedora posts the logs aas files to Mote
+- Fedora posts the logs as files to Mote
 
-More backends are planned, such as posting the logs to the room.
+More backends are possible.
 
 # Permissions
 
