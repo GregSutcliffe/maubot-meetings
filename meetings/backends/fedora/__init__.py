@@ -1,9 +1,9 @@
+import json
 import os
 import re
 
 import httpx
 import jinja2
-import json
 from fedora_messaging import api as fm_api
 from fedora_messaging import exceptions as fm_exceptions
 from httpx_gssapi import HTTPSPNEGOAuth
