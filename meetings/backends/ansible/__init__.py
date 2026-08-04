@@ -81,8 +81,7 @@ async def upload_log_to_discourse(config, log_data, logger):
         txt = f"[full_log.txt|attachment]({r['short_url']})"
         return txt
     else:
-        logger.info(res.status_code)
-        logger.info(res.content)
+        logger.warning(f"error uploading: {res.status_code} - {res.content}")
         return ""
 
 
@@ -99,8 +98,9 @@ async def post_to_discourse(config, raw_post, title, logger):
     if res.status_code == 200:
         r = json.loads(res.content)
         return r["topic_id"]
-    return ""
-
+    else:
+        logger.warning(f"error posting: {res.status_code} - {res.content}")
+        return ""
 
 # required backend methods
 async def startmeeting(meetbot, event, meeting):
