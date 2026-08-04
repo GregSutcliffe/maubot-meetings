@@ -102,6 +102,7 @@ async def post_to_discourse(config, raw_post, title, logger):
         logger.warning(f"error posting: {res.status_code} - {res.content}")
         return ""
 
+
 # required backend methods
 async def startmeeting(meetbot, event, meeting):
     room_alias = await get_room_alias(meetbot.client, event.room_id)
