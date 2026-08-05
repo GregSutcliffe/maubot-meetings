@@ -31,6 +31,17 @@ async def upgrade_v3(conn: Connection) -> None:
     await conn.execute("ALTER TABLE meetings ADD COLUMN meeting_name TEXT NOT NULL")
 
 
-@upgrade_table.register(description="add line_num")
+@upgrade_table.register(description="add line_num with default for databases on v3")
 async def upgrade_v4(conn: Connection) -> None:
-    await conn.execute("ALTER TABLE meeting_logs ADD COLUMN line_num integer NOT NULL")
+    # Databases with existing rows will crash here if we don't include the default right away
+    await conn.execute("ALTER TABLE meeting_logs ADD COLUMN line_num integer NOT NULL DEFAULT 0")
+
+
+# Some DBs were already updated to v4 before the default was added, so enforce it here
+# SQLite can't alter an existing column, so we rename/copy/replace it
+@upgrade_table.register(description="set default for databases already on v4")
+async def upgrade_v5(conn: Connection) -> None:
+    await conn.execute("ALTER TABLE meeting_logs RENAME COLUMN line_num TO line_num_old")
+    await conn.execute("ALTER TABLE meeting_logs ADD COLUMN line_num integer NOT NULL DEFAULT 0")
+    await conn.execute("UPDATE meeting_logs SET line_num = COALESCE(line_num_old, 0)")
+    await conn.execute("ALTER TABLE meeting_logs DROP COLUMN line_num_old")
