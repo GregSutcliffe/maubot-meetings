@@ -81,7 +81,7 @@ async def _get_fasname_from_mxid(meetbot, event, mxid):
                 meetbot.log.error(f"Error Getting information from FASJSON: {e}")
                 return mxid
         try:
-            searchresult = response.json().get("result")
+            searchresult = response.json().get("result", [])
         except json.decoder.JSONDecodeError as e:
             meetbot.log.error(f"Error parsing FASJSON response: {e}")
             return mxid
